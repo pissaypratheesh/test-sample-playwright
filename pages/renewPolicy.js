@@ -98,9 +98,76 @@ class RenewPolicyPage {
         await regNumber.first().fill(numberVal);
       }
     } catch {}
+
+    // Additional details/discount section (after vehicle details)
+    try {
+      const additionalHeader = page.getByText(/Additional\s*(details|discount)/i).first();
+      await additionalHeader.scrollIntoViewIfNeeded().catch(() => {});
+      // If an accordion, ensure expanded by clicking header if details not visible
+      const detailsRoot = page.locator('.MuiAccordionDetails-root').filter({ hasText: /NCB|Voluntary|AAI|Handicapped|Anti\s*Theft/i }).first();
+      if (!(await detailsRoot.isVisible().catch(() => false))) {
+        await additionalHeader.click().catch(() => {});
+        await page.waitForTimeout(500);
+      }
+
+      // Toggle Yes for NCB Carry forward
+      await this._toggleYesNearLabel(/NCB\s*Carry\s*Forward/i).catch(() => {});
+      // Wait for NCB dropdown container
+      await page.locator('#divNCBValue').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+      // Select 20 in Entitled NCB% (try near-label then fallback by ID)
+      const ncbSelected = await (async () => {
+        try { await this._selectDropdownNearLabel(/Entitled\s*NCB\s*%/i, '20', { numeric: true }); return true; } catch { /* fallthrough */ }
+        try { await this._selectMuiOption('#mui-component-select-NCBLevel', '20', { numeric: true }); return true; } catch { /* ignore */ }
+        return false;
+      })();
+
+      // Voluntary excess: toggle and select 2500
+      await this._toggleYesNearLabel(/Voluntary\s*Excess/i).catch(() => {});
+      await page.locator('#divVoluntaryExcess').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+      const volSelected = await (async () => {
+        try { await this._selectDropdownNearLabel(/Voluntary\s*Excess/i, '2500', { numeric: true }); return true; } catch { /* fallthrough */ }
+        try { await this._selectMuiOption('#mui-component-select-VoluntaryExcess', '2500', { numeric: true }); return true; } catch { /* ignore */ }
+        return false;
+      })();
+
+      // AAI membership
+      await this._toggleYesNearLabel(/AAI\s*Membership/i).catch(() => {});
+      // Handicapped
+      await this._toggleYesNearLabel(/Handicapped/i).catch(() => {});
+      // Anti theft
+      await this._toggleYesNearLabel(/Anti\s*Theft/i).catch(() => {});
+    } catch {}
+
     await page.getByRole('button', { name: /Get Quotes/i }).click();
+    // Optional pause immediately after clicking Get Quotes for manual observation
+    {
+      const debugSleepMs = parseInt(process.env.PLAYWRIGHT_DEBUG_SLEEP_MS || '0', 10);
+      if (Number.isFinite(debugSleepMs) && debugSleepMs > 0) {
+        await page.waitForTimeout(debugSleepMs);
+      }
+    }
     // Brief wait to let any validation surface
     await page.waitForTimeout(2000);
+
+    // Robust, configurable wait for slow quote result loads
+    try {
+      const waitMs = parseInt(process.env.PLAYWRIGHT_QUOTE_LOAD_TIMEOUT_MS || '180000', 10);
+      const pollIntervalMs = 500;
+      const deadline = Date.now() + waitMs;
+      while (Date.now() < deadline) {
+        // Success conditions: quotes table/list visible OR a success toast
+        const quoteGrid = page.locator('table:has-text("Quote"), [data-testid="quotes-grid"], [role="grid"]:has-text("Quote")').first();
+        if (await quoteGrid.isVisible().catch(() => false)) break;
+        const successToast = page.getByText(/quote|premium|plan|result/i).first();
+        if (await successToast.isVisible().catch(() => false)) break;
+        // Failure conditions: error alert surfaced
+        const errorAlert = page.getByRole('alert').filter({ hasText: /error|failed|unable|timeout/i }).first();
+        if (await errorAlert.isVisible().catch(() => false)) {
+          break;
+        }
+        await page.waitForTimeout(pollIntervalMs);
+      }
+    } catch {}
     // Try to detect a red information alert mentioning minimum constraints
     try {
       const alertRole = page.getByRole('alert');
@@ -121,8 +188,11 @@ class RenewPolicyPage {
         }
       }
     } catch {}
-    // Long sleep for manual observation
-    await page.waitForTimeout(15000);
+    // Optional sleep for manual observation. Enable with PLAYWRIGHT_DEBUG_SLEEP_MS env var.
+    const debugSleepMs = parseInt(process.env.PLAYWRIGHT_DEBUG_SLEEP_MS || '0', 10);
+    if (Number.isFinite(debugSleepMs) && debugSleepMs > 0) {
+      await page.waitForTimeout(debugSleepMs);
+    }
   }
 
   async _selectDate(dateStr) {
@@ -309,6 +379,94 @@ class RenewPolicyPage {
     throw new Error(`Option not found for ${selectLocator}: ${optionText}`);
   }
 
+  async _toggleYesNearLabel(labelRegex) {
+    const page = this.page;
+    const label = page.getByText(labelRegex).first();
+    await label.scrollIntoViewIfNeeded().catch(() => {});
+    const container = label.locator('xpath=ancestor::*[self::div or self::*][1]');
+    // Try explicit Yes button
+    const yesBtn = container.getByRole('button', { name: /yes/i }).first();
+    if (await yesBtn.isVisible().catch(() => false)) {
+      const ariaPressed = await yesBtn.getAttribute('aria-pressed').catch(() => null);
+      if (ariaPressed !== 'true') {
+        await yesBtn.click();
+      }
+      return;
+    }
+    // Try switch/checkbox
+    const checkbox = container.locator('input[type="checkbox"], [role="switch"]').first();
+    if (await checkbox.isVisible().catch(() => false)) {
+      const isChecked = await checkbox.isChecked().catch(() => false);
+      if (!isChecked) {
+        const boxLabel = checkbox.locator('xpath=ancestor::label[1]');
+        if (await boxLabel.isVisible().catch(() => false)) {
+          await boxLabel.click();
+        } else {
+          await checkbox.click({ force: true });
+        }
+      }
+      return;
+    }
+    // Try radio Yes
+    const radioYes = container.locator('input[type="radio"][value="true"], input[type="radio"][aria-checked="true"]').first();
+    if (await radioYes.isVisible().catch(() => false)) {
+      const isChecked = await radioYes.isChecked().catch(() => false);
+      if (!isChecked) {
+        await radioYes.check({ force: true });
+      }
+      return;
+    }
+    // Fallback: global Yes near the label
+    const globalYes = page.getByRole('button', { name: /yes/i }).first();
+    if (await globalYes.isVisible().catch(() => false)) {
+      const ariaPressed = await globalYes.getAttribute('aria-pressed').catch(() => null);
+      if (ariaPressed !== 'true') {
+        await globalYes.click();
+      }
+      return;
+    }
+    throw new Error('Unable to set Yes for toggle near label');
+  }
+
+  async _selectDropdownNearLabel(labelRegex, optionText, opts = {}) {
+    const page = this.page;
+    const label = page.getByText(labelRegex).first();
+    await label.scrollIntoViewIfNeeded().catch(() => {});
+    const container = label.locator('xpath=ancestor::*[self::div or self::*][1]');
+    const button = container.locator('[role="combobox"], [role="button"][aria-haspopup="listbox"], [aria-haspopup="listbox"], [id^="mui-component-select-"]').first();
+    if (!(await button.isVisible().catch(() => false))) throw new Error('Dropdown button not found near label');
+    await button.click();
+    // Reuse listbox selection logic similar to _selectMuiOption
+    const list = page.locator('ul[role="listbox"], [role="listbox"]');
+    await list.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
+    const options = list.locator('li[role="option"], [role="option"]');
+    const count = await options.count();
+    const normalize = (s) => (s || '').trim();
+    const normalizeLoose = (s) => (s || '').replace(/\s+/g, '').toLowerCase();
+    const toNumeric = (s) => {
+      const m = (s || '').match(/\d+/);
+      return m ? m[0] : null;
+    };
+    for (let i = 0; i < count; i++) {
+      const text = normalize(await options.nth(i).innerText());
+      if (text === optionText || text.includes(optionText)) { await options.nth(i).click(); return; }
+    }
+    const target = normalizeLoose(optionText);
+    for (let i = 0; i < count; i++) {
+      const text = normalizeLoose(await options.nth(i).innerText());
+      if (text.includes(target)) { await options.nth(i).click(); return; }
+    }
+    if (opts.numeric) {
+      const want = toNumeric(optionText);
+      if (want) {
+        for (let i = 0; i < count; i++) {
+          const text = await options.nth(i).innerText();
+          if (toNumeric(text) === want) { await options.nth(i).click(); return; }
+        }
+      }
+    }
+    throw new Error('Option not found near label');
+  }
   async _selectSalutation(optionText) {
     const page = this.page;
     // Try by known ID
