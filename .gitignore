@@ -1,0 +1,34 @@
+# Node dependencies
+node_modules/
+node_modules.zip
+
+# Playwright
+playwright-report/
+playwright/.cache/
+
+# Allure
+allure-results/
+allure-report/
+
+# Test results
+coverage/
+coverage-*/
+*.log
+logs/
+.test-results/
+test-results/
+
+# OS / Editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Env
+.env
+.env.*
+
+# Misc
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
