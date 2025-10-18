@@ -193,6 +193,203 @@ class RenewPolicyPage {
     if (Number.isFinite(debugSleepMs) && debugSleepMs > 0) {
       await page.waitForTimeout(debugSleepMs);
     }
+    // After quotes load, pick the first available quote and click Buy Now
+    try {
+      const waitMs = parseInt(process.env.PLAYWRIGHT_QUOTE_LOAD_TIMEOUT_MS || '180000', 10);
+      
+      // Wait for quotes to load and spinners to disappear
+      console.log('Waiting for quotes to load...');
+      await page.waitForTimeout(10000); // Wait at least 10 seconds for quotes to appear
+      
+      // Wait for any spinners/progress to finish if present
+      const spinners = page.locator('[role="progressbar"], .MuiCircularProgress-root');
+      try { await spinners.first().waitFor({ state: 'visible', timeout: 5000 }); } catch {}
+      await spinners.first().waitFor({ state: 'hidden', timeout: waitMs }).catch(() => {});
+      
+      // Wait for PolicyListing cards to be visible (based on getquotes.html structure)
+      await page.locator('.PolicyListing').first().waitFor({ state: 'visible', timeout: waitMs })
+        .catch(() => console.log('PolicyListing not found, will try alternative selectors'));
+
+      console.log('Attempting to find and click BUY NOW button...');
+      
+      let clicked = false;
+      
+      // APPROACH 1: Target the first PolicyListing card's BUY NOW button directly (from getquotes.html structure)
+      try {
+        // First, ensure we can see the quote cards
+        const policyCard = page.locator('.MuiPaper-root.MuiPaper-outlined.MuiCard-root.PolicyListing').first();
+        if (await policyCard.isVisible({ timeout: 5000 })) {
+          // Find the BUY NOW button within the first quote card using the specific structure
+          const buyNowButton = policyCard.locator('button.MuiButtonBase-root.MuiButton-root.MuiButton-contained:has-text("BUY NOW")').first();
+          
+          if (await buyNowButton.isVisible({ timeout: 3000 })) {
+            console.log('Found BUY NOW button in first PolicyListing card');
+            await policyCard.scrollIntoViewIfNeeded();
+            await buyNowButton.scrollIntoViewIfNeeded();
+            await page.waitForTimeout(1000); // Small pause for stability
+            await buyNowButton.click({ timeout: 5000 });
+            clicked = true;
+            console.log('Successfully clicked BUY NOW button');
+          }
+        }
+      } catch (e) {
+        console.log('Error with direct PolicyListing approach:', e.message);
+      }
+      
+      // APPROACH 2: Try using the exact CSS path from getquotes.html if approach 1 failed
+      if (!clicked) {
+        try {
+          // This targets the specific button structure from getquotes.html
+          const specificBuyNow = page.locator('.MuiButtonBase-root.MuiButton-root.MuiButton-contained.MuiButton-containedPrimary.MuiButton-sizeMedium.MuiButton-containedSizeMedium.cursor-pointer').first();
+          
+          if (await specificBuyNow.isVisible({ timeout: 3000 })) {
+            console.log('Found BUY NOW button using specific CSS selector');
+            await specificBuyNow.scrollIntoViewIfNeeded();
+            await page.waitForTimeout(1000);
+            await specificBuyNow.click();
+            clicked = true;
+            console.log('Successfully clicked specific BUY NOW button');
+          }
+        } catch (e) {
+          console.log('Error with specific CSS selector approach:', e.message);
+        }
+      }
+      
+      // APPROACH 3: Try common selectors for Buy Now (enabled and visible)
+      if (!clicked) {
+        const buyCandidates = [
+          page.locator('button:has-text("BUY NOW"):not([disabled])').first(),
+          page.getByRole('button', { name: /buy\s*now/i }).first(),
+          page.locator('a:has-text("BUY NOW")').first(),
+          // Additional selector based on the HTML structure
+          page.locator('.quotation-buynow-btn').first().locator('xpath=..'),
+        ];
+
+        for (const cand of buyCandidates) {
+          if (!(await cand.isVisible({ timeout: 2000 }).catch(() => false))) continue;
+          try {
+            console.log('Found BUY NOW button using common selector');
+            await cand.scrollIntoViewIfNeeded();
+            await cand.waitFor({ state: 'visible', timeout: 5000 });
+            await page.waitForTimeout(1000);
+            await cand.click({ trial: true });
+            await cand.click();
+            clicked = true;
+            console.log('Successfully clicked BUY NOW using common selector');
+            break;
+          } catch (e) {
+            console.log('Error clicking with common selector:', e.message);
+          }
+        }
+      }
+
+      // APPROACH 4: If no global Buy Now visible, try within first table row/card
+      if (!clicked) {
+        try {
+          // Explicit: first quote card's Buy Now within .PolicyListing
+          const firstCard = page.locator('.PolicyListing').first();
+          if (await firstCard.isVisible({ timeout: 5000 }).catch(() => false)) {
+            const firstCardBuy = firstCard.locator('button:has-text("BUY NOW"), [role="button"]:has-text("BUY NOW")').first();
+            if (await firstCardBuy.isVisible({ timeout: 2000 }).catch(() => false)) {
+              console.log('Found BUY NOW button in first card');
+              await firstCard.scrollIntoViewIfNeeded();
+              await firstCardBuy.scrollIntoViewIfNeeded();
+              await page.waitForTimeout(1000);
+              await firstCardBuy.click({ trial: true });
+              await firstCardBuy.click();
+              clicked = true;
+              console.log('Successfully clicked BUY NOW in first card');
+            }
+          }
+        } catch (e) {
+          console.log('Error with first card approach:', e.message);
+          try {
+            // Force click as last resort
+            const firstCard = page.locator('.PolicyListing').first();
+            const firstCardBuy = firstCard.locator('button:has-text("BUY NOW")').first();
+            await firstCardBuy.click({ force: true });
+            clicked = true;
+            console.log('Force clicked BUY NOW in first card');
+          } catch {}
+        }
+      }
+
+      // APPROACH 5: Try table rows if cards didn't work
+      if (!clicked) {
+        try {
+          const firstRow = page.locator('table tbody tr').first();
+          if (await firstRow.isVisible().catch(() => false)) {
+            const rowBuy = firstRow.getByRole('button', { name: /buy\s*now/i }).first();
+            if (await rowBuy.isVisible({ timeout: 1000 }).catch(() => false)) {
+              console.log('Found BUY NOW button in table row');
+              await rowBuy.scrollIntoViewIfNeeded();
+              await page.waitForTimeout(1000);
+              await rowBuy.click({ trial: true });
+              await rowBuy.click();
+              clicked = true;
+              console.log('Successfully clicked BUY NOW in table row');
+            } else {
+              await firstRow.click();
+              const altRowBuy = firstRow.locator('button:has-text("BUY NOW"), a:has-text("BUY NOW")').first();
+              if (await altRowBuy.isVisible({ timeout: 1000 }).catch(() => false)) {
+                await altRowBuy.scrollIntoViewIfNeeded();
+                await page.waitForTimeout(1000);
+                await altRowBuy.click({ trial: true });
+                await altRowBuy.click();
+                clicked = true;
+                console.log('Successfully clicked alternative BUY NOW in table row');
+              }
+            }
+          }
+        } catch (e) {
+          console.log('Error with table row approach:', e.message);
+        }
+      }
+
+      // APPROACH 6: Final fallback using any visible BUY NOW button
+      if (!clicked) {
+        try {
+          const anyBuyNow = page.locator('button:has-text("BUY NOW"), [class*="buynow" i]').first();
+          if (await anyBuyNow.isVisible({ timeout: 2000 }).catch(() => false)) {
+            console.log('Found BUY NOW using fallback approach');
+            await anyBuyNow.scrollIntoViewIfNeeded();
+            await page.waitForTimeout(1000);
+            await anyBuyNow.click({ force: true });
+            clicked = true;
+            console.log('Successfully clicked BUY NOW using fallback approach');
+          }
+        } catch (e) {
+          console.log('Error with fallback approach:', e.message);
+        }
+      }
+
+      // Confirm navigation into proposal/checkout screen and fill details
+      if (clicked) {
+        console.log('Waiting for proposal details page to load...');
+        
+        // Wait for proposal page to load
+        await Promise.race([
+          page.waitForSelector('input[name="DOB"]', { timeout: 60000 }).catch(() => null),
+          page.waitForSelector('text=/Proposal|Proposer|Checkout/i', { timeout: 60000 }).catch(() => null),
+          page.waitForSelector('input[name="FIRST_NAME"]', { timeout: 60000 }).catch(() => null),
+        ]);
+        
+        // Load proposal details data
+        const proposalData = require('../testdata/proposalDetails.json');
+        console.log('Filling proposal details with dummy data...');
+        
+        // Fill proposal details form
+        await this._fillProposalDetails(proposalData);
+        
+        // Stay on the page for 5 seconds for observation
+        console.log('Staying on proposal details page for 5 seconds...');
+        await page.waitForTimeout(5000);
+        
+        console.log('Proposal details filled successfully!');
+      }
+    } catch (e) {
+      console.log('Error in proposal details flow:', e.message);
+    }
   }
 
   async _selectDate(dateStr) {
@@ -501,6 +698,227 @@ class RenewPolicyPage {
       return;
     }
     throw new Error(`Salutation dropdown not found`);
+  }
+
+  async _fillProposalDetails(data) {
+    const page = this.page;
+    
+    try {
+      console.log('Starting to fill proposal details...');
+      
+      // Wait for the proposal details section to be visible
+      await page.waitForSelector('text=Proposer Details', { timeout: 10000 }).catch(() => {});
+      
+      // Salutation - try different approaches
+      try {
+        console.log('Filling salutation...');
+        await this._selectMuiOption('#mui-component-select-SALUTATION', data.salutation);
+      } catch {
+        try {
+          await page.locator('[name="SALUTATION"]').selectOption(data.salutation);
+        } catch {
+          console.log('Could not fill salutation, skipping...');
+        }
+      }
+      
+      // First Name
+      try {
+        console.log('Filling first name...');
+        const firstNameInput = page.locator('input[name="FIRST_NAME"]');
+        if (await firstNameInput.isVisible({ timeout: 2000 })) {
+          await firstNameInput.clear();
+          await firstNameInput.fill(data.firstName);
+        }
+      } catch (e) {
+        console.log('Error filling first name:', e.message);
+      }
+      
+      // Middle Name
+      try {
+        console.log('Filling middle name...');
+        const middleNameInput = page.locator('input[name="MIDDLE_NAME"]');
+        if (await middleNameInput.isVisible({ timeout: 2000 })) {
+          await middleNameInput.clear();
+          await middleNameInput.fill(data.middleName);
+        }
+      } catch (e) {
+        console.log('Error filling middle name:', e.message);
+      }
+      
+      // Last Name
+      try {
+        console.log('Filling last name...');
+        const lastNameInput = page.locator('input[name="LAST_NAME"]');
+        if (await lastNameInput.isVisible({ timeout: 2000 })) {
+          await lastNameInput.clear();
+          await lastNameInput.fill(data.lastName);
+        }
+      } catch (e) {
+        console.log('Error filling last name:', e.message);
+      }
+      
+      // Date of Birth
+      try {
+        console.log('Filling date of birth...');
+        const dobInput = page.locator('input[name="DOB"]');
+        if (await dobInput.isVisible({ timeout: 2000 })) {
+          await this._setDateOnInput(dobInput, data.dateOfBirth);
+        }
+      } catch (e) {
+        console.log('Error filling date of birth:', e.message);
+      }
+      
+      // Email
+      try {
+        console.log('Filling email...');
+        const emailInput = page.locator('input[name="EMAIL"]');
+        if (await emailInput.isVisible({ timeout: 2000 })) {
+          const isEnabled = await emailInput.isEnabled().catch(() => false);
+          if (isEnabled) {
+            await emailInput.clear();
+            await emailInput.fill(data.email);
+          } else {
+            console.log('Email field is disabled, skipping...');
+          }
+        }
+      } catch (e) {
+        console.log('Error filling email:', e.message);
+      }
+      
+      // Mobile Number
+      try {
+        console.log('Filling mobile number...');
+        const mobileInput = page.locator('input[name="MOB_NO"]');
+        if (await mobileInput.isVisible({ timeout: 2000 })) {
+          const isEnabled = await mobileInput.isEnabled().catch(() => false);
+          if (isEnabled) {
+            await mobileInput.clear();
+            await mobileInput.fill(data.mobileNo);
+          } else {
+            console.log('Mobile number field is disabled, skipping...');
+          }
+        }
+      } catch (e) {
+        console.log('Error filling mobile number:', e.message);
+      }
+      
+      // Alternate Mobile Number
+      try {
+        console.log('Filling alternate mobile number...');
+        const altMobileInput = page.locator('input[name="ALT_MOBILE_NO"]');
+        if (await altMobileInput.isVisible({ timeout: 2000 })) {
+          await altMobileInput.clear();
+          await altMobileInput.fill(data.alternateMobileNo);
+        }
+      } catch (e) {
+        console.log('Error filling alternate mobile number:', e.message);
+      }
+      
+      // Address Line 1
+      try {
+        console.log('Filling address line 1...');
+        const addr1Input = page.locator('input[name="ADDRESS_LINE1"], textarea[name="ADDRESS_LINE1"]');
+        if (await addr1Input.isVisible({ timeout: 2000 })) {
+          await addr1Input.clear();
+          await addr1Input.fill(data.addressLine1);
+        }
+      } catch (e) {
+        console.log('Error filling address line 1:', e.message);
+      }
+      
+      // Address Line 2
+      try {
+        console.log('Filling address line 2...');
+        const addr2Input = page.locator('input[name="ADDRESS_LINE2"], textarea[name="ADDRESS_LINE2"]');
+        if (await addr2Input.isVisible({ timeout: 2000 })) {
+          await addr2Input.clear();
+          await addr2Input.fill(data.addressLine2);
+        }
+      } catch (e) {
+        console.log('Error filling address line 2:', e.message);
+      }
+      
+      // Landmark
+      try {
+        console.log('Filling landmark...');
+        const landmarkInput = page.locator('input[name="LANDMARK"], textarea[name="LANDMARK"]');
+        if (await landmarkInput.isVisible({ timeout: 2000 })) {
+          await landmarkInput.clear();
+          await landmarkInput.fill(data.landmark);
+        }
+      } catch (e) {
+        console.log('Error filling landmark:', e.message);
+      }
+      
+      // State
+      try {
+        console.log('Filling state...');
+        await this._selectMuiOption('#mui-component-select-STATE_ID', data.state);
+      } catch (e) {
+        console.log('Error filling state:', e.message);
+      }
+      
+      // City
+      try {
+        console.log('Filling city...');
+        await this._selectMuiOption('#mui-component-select-CITY_ID', data.city);
+      } catch (e) {
+        console.log('Error filling city:', e.message);
+      }
+      
+      // Pincode
+      try {
+        console.log('Filling pincode...');
+        const pincodeInput = page.locator('input[name="PIN"]');
+        if (await pincodeInput.isVisible({ timeout: 2000 })) {
+          await pincodeInput.clear();
+          await pincodeInput.fill(data.pincode);
+        }
+      } catch (e) {
+        console.log('Error filling pincode:', e.message);
+      }
+      
+      // PAN Number
+      try {
+        console.log('Filling PAN number...');
+        const panInput = page.locator('input[name="PAN_NO"]');
+        if (await panInput.isVisible({ timeout: 2000 })) {
+          await panInput.clear();
+          await panInput.fill(data.panNo);
+        }
+      } catch (e) {
+        console.log('Error filling PAN number:', e.message);
+      }
+      
+      // Aadhaar Number
+      try {
+        console.log('Filling Aadhaar number...');
+        const aadhaarInput = page.locator('input[name="AADHAAR_NO"]');
+        if (await aadhaarInput.isVisible({ timeout: 2000 })) {
+          await aadhaarInput.clear();
+          await aadhaarInput.fill(data.aadhaarNo);
+        }
+      } catch (e) {
+        console.log('Error filling Aadhaar number:', e.message);
+      }
+      
+      // EI Account Number
+      try {
+        console.log('Filling EI account number...');
+        const eiInput = page.locator('input[name="EI_ACCOUNT_NO"]');
+        if (await eiInput.isVisible({ timeout: 2000 })) {
+          await eiInput.clear();
+          await eiInput.fill(data.eiAccountNo);
+        }
+      } catch (e) {
+        console.log('Error filling EI account number:', e.message);
+      }
+      
+      console.log('Finished filling proposal details form');
+      
+    } catch (e) {
+      console.log('Error in _fillProposalDetails:', e.message);
+    }
   }
 }
 
