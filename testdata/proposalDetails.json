@@ -1,19 +1,58 @@
 {
-  "salutation": "MR.",
-  "firstName": "JOHN",
-  "middleName": "WILLIAM",
-  "lastName": "DOE",
-  "dateOfBirth": "15/01/1985",
-  "email": "john.doe@example.com",
-  "mobileNo": "9876543210",
-  "alternateMobileNo": "9876543211",
-  "addressLine1": "123 Main Street",
-  "addressLine2": "Apartment 4B",
-  "landmark": "Near City Mall",
-  "state": "DELHI",
-  "city": "NEW DELHI",
-  "pincode": "110001",
-  "panNo": "ABCDE1234F",
-  "aadhaarNo": "123456789012",
-  "eiAccountNo": "ACC123456789"
+  "personalDetails": {
+    "salutation": "Mr.",
+    "firstName": "JOHN",
+    "middleName": "WILLIAM",
+    "lastName": "DOE",
+    "dateOfBirth": "01/01/1995",
+    "email": "john.doe@example.com",
+    "mobileNo": "9876543210",
+    "alternateMobileNo": "9876543211",
+    "addressLine1": "123 Main Street",
+    "addressLine2": "Apartment 4B",
+    "landmark": "Near City Mall",
+    "state": "DELHI",
+    "city": "NEW DELHI",
+    "pinCode": "110001",
+    "panNo": "ABCDE1234F",
+    "aadhaarNo": "123456789012"
+  },
+  "aaMembershipDetails": {
+    "associationName": "Automobile Association of Eastern India",
+    "membershipNo": "AA123456789",
+    "validityMonth": "Dec",
+    "year": "2026"
+  },
+  "ncbCarryForwardDetails": {
+    "make": "TATA",
+    "model": "NEXON",
+    "variant": "XZ+",
+    "yearOfManufacturer": "2020",
+    "chasisNo": "MAT123456789012345",
+    "engineNo": "ENG123456789012345",
+    "invoiceDate": "15/01/2020",
+    "registrationNo": "DL09RAA5445",
+    "previousPolicyNo": "POL123456789",
+    "ncbDocumentSubmitted": true
+  },
+  "policyDetails": {
+    "policyPeriodFrom": "18/10/2025",
+    "policyPeriodTo": "17/10/2026",
+    "insuranceCompany": "TATA AIG General Insurance",
+    "officeAddress": "Mumbai Office"
+  },
+  "nomineeDetails": {
+    "nomineeName": "Jane Doe",
+    "nomineeAge": "35",
+    "nomineeRelation": "Spouse",
+    "nomineeGender": "Female"
+  },
+  "paymentDetails": {
+    "paymentMode": "Credit Card",
+    "dpName": "Default DP"
+  },
+  "actions": {
+    "clickProposalReview": true,
+    "submitProposal": false
+  }
 }

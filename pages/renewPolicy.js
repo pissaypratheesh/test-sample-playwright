@@ -197,43 +197,63 @@ class RenewPolicyPage {
     try {
       const waitMs = parseInt(process.env.PLAYWRIGHT_QUOTE_LOAD_TIMEOUT_MS || '180000', 10);
       
-      // Wait for quotes to load and spinners to disappear
+      // Wait for quotes to load
       console.log('Waiting for quotes to load...');
-      await page.waitForTimeout(10000); // Wait at least 10 seconds for quotes to appear
+      await page.waitForTimeout(5000); // Wait 5 seconds for quotes to appear
       
-      // Wait for any spinners/progress to finish if present
-      const spinners = page.locator('[role="progressbar"], .MuiCircularProgress-root');
-      try { await spinners.first().waitFor({ state: 'visible', timeout: 5000 }); } catch {}
-      await spinners.first().waitFor({ state: 'hidden', timeout: waitMs }).catch(() => {});
+      console.log('Proceeding to find BUY NOW button...');
       
       // Wait for PolicyListing cards to be visible (based on getquotes.html structure)
-      await page.locator('.PolicyListing').first().waitFor({ state: 'visible', timeout: waitMs })
-        .catch(() => console.log('PolicyListing not found, will try alternative selectors'));
+      try {
+        await page.locator('button:has-text("BUY NOW")').first().waitFor({ state: 'visible', timeout: waitMs });
+        console.log('BUY NOW button is visible');
+      } catch (e) {
+        console.log('BUY NOW button not found, will try alternative selectors:', e.message);
+      }
 
       console.log('Attempting to find and click BUY NOW button...');
       
+      // Check if page is still alive
+      try {
+        await page.title();
+        console.log('Page is still alive, proceeding with BUY NOW click');
+      } catch (e) {
+        console.log('Page has been closed, cannot proceed with BUY NOW click');
+        throw new Error('Page has been closed');
+      }
+      
       let clicked = false;
       
-      // APPROACH 1: Target the first PolicyListing card's BUY NOW button directly (from getquotes.html structure)
+      // APPROACH 1: Target the first BUY NOW button directly
       try {
-        // First, ensure we can see the quote cards
-        const policyCard = page.locator('.MuiPaper-root.MuiPaper-outlined.MuiCard-root.PolicyListing').first();
-        if (await policyCard.isVisible({ timeout: 5000 })) {
-          // Find the BUY NOW button within the first quote card using the specific structure
-          const buyNowButton = policyCard.locator('button.MuiButtonBase-root.MuiButton-root.MuiButton-contained:has-text("BUY NOW")').first();
+        const buyNowButton = page.locator('button:has-text("BUY NOW")').first();
+        if (await buyNowButton.isVisible({ timeout: 5000 })) {
+          console.log('Found BUY NOW button, clicking...');
+          await buyNowButton.scrollIntoViewIfNeeded();
+          await page.waitForTimeout(1000);
           
-          if (await buyNowButton.isVisible({ timeout: 3000 })) {
-            console.log('Found BUY NOW button in first PolicyListing card');
-            await policyCard.scrollIntoViewIfNeeded();
-            await buyNowButton.scrollIntoViewIfNeeded();
-            await page.waitForTimeout(1000); // Small pause for stability
-            await buyNowButton.click({ timeout: 5000 });
+          // Wait for navigation after clicking BUY NOW
+          const [newPage] = await Promise.all([
+            page.waitForEvent('popup', { timeout: 10000 }).catch(() => null),
+            buyNowButton.click()
+          ]);
+          
+          if (newPage) {
+            console.log('✅ BUY NOW opened new window, switching to it...');
+            await newPage.waitForLoadState('networkidle');
+            // Update page reference to the new page
+            this.page = newPage;
             clicked = true;
-            console.log('Successfully clicked BUY NOW button');
+            console.log('✅ Successfully switched to new window!');
+          } else {
+            // No popup, might be navigation in same window
+            await page.waitForLoadState('networkidle', { timeout: 10000 });
+            clicked = true;
+            console.log('✅ BUY NOW button clicked successfully!');
           }
         }
       } catch (e) {
-        console.log('Error with direct PolicyListing approach:', e.message);
+        console.log('Approach 1 failed:', e.message);
       }
       
       // APPROACH 2: Try using the exact CSS path from getquotes.html if approach 1 failed
@@ -381,9 +401,9 @@ class RenewPolicyPage {
         // Fill proposal details form
         await this._fillProposalDetails(proposalData);
         
-        // Stay on the page for 5 seconds for observation
-        console.log('Staying on proposal details page for 5 seconds...');
-        await page.waitForTimeout(5000);
+        // Stay on the page for manual review
+        console.log('Staying on proposal details page for 15 seconds for manual review...');
+        await page.waitForTimeout(15000);
         
         console.log('Proposal details filled successfully!');
       }
@@ -480,8 +500,8 @@ class RenewPolicyPage {
       el.blur();
     }, dateStr);
     let val = await input.inputValue().catch(() => '');
-    if (val && val !== 'DD/MM/YYYY') {
-      // Ensure calendar (if open) is closed to avoid overlay blocking
+    if (val === dateStr) {
+      // Value is already set correctly
       await page.keyboard.press('Escape').catch(() => {});
       await input.blur().catch(() => {});
       return;
@@ -712,10 +732,10 @@ class RenewPolicyPage {
       // Salutation - try different approaches
       try {
         console.log('Filling salutation...');
-        await this._selectMuiOption('#mui-component-select-SALUTATION', data.salutation);
+        await this._selectMuiOption('#mui-component-select-SALUTATION', data.personalDetails.salutation);
       } catch {
         try {
-          await page.locator('[name="SALUTATION"]').selectOption(data.salutation);
+          await page.locator('[name="SALUTATION"]').selectOption(data.personalDetails.salutation);
         } catch {
           console.log('Could not fill salutation, skipping...');
         }
@@ -727,7 +747,7 @@ class RenewPolicyPage {
         const firstNameInput = page.locator('input[name="FIRST_NAME"]');
         if (await firstNameInput.isVisible({ timeout: 2000 })) {
           await firstNameInput.clear();
-          await firstNameInput.fill(data.firstName);
+          await firstNameInput.fill(data.personalDetails.firstName);
         }
       } catch (e) {
         console.log('Error filling first name:', e.message);
@@ -739,7 +759,7 @@ class RenewPolicyPage {
         const middleNameInput = page.locator('input[name="MIDDLE_NAME"]');
         if (await middleNameInput.isVisible({ timeout: 2000 })) {
           await middleNameInput.clear();
-          await middleNameInput.fill(data.middleName);
+          await middleNameInput.fill(data.personalDetails.middleName);
         }
       } catch (e) {
         console.log('Error filling middle name:', e.message);
@@ -751,18 +771,30 @@ class RenewPolicyPage {
         const lastNameInput = page.locator('input[name="LAST_NAME"]');
         if (await lastNameInput.isVisible({ timeout: 2000 })) {
           await lastNameInput.clear();
-          await lastNameInput.fill(data.lastName);
+          await lastNameInput.fill(data.personalDetails.lastName);
         }
       } catch (e) {
         console.log('Error filling last name:', e.message);
       }
       
-      // Date of Birth
+      // Date of Birth - Use direct JavaScript injection for readonly fields
       try {
         console.log('Filling date of birth...');
         const dobInput = page.locator('input[name="DOB"]');
         if (await dobInput.isVisible({ timeout: 2000 })) {
-          await this._setDateOnInput(dobInput, data.dateOfBirth);
+          // For readonly DOB fields, use direct JavaScript injection
+          await dobInput.evaluate((el, value) => {
+            el.removeAttribute('readonly');
+            el.readOnly = false;
+            el.value = value;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+            el.dispatchEvent(new Event('blur', { bubbles: true }));
+          }, data.personalDetails.dateOfBirth);
+          
+          // Verify the value was set
+          const currentValue = await dobInput.inputValue();
+          console.log(`DOB set to: ${currentValue}`);
         }
       } catch (e) {
         console.log('Error filling date of birth:', e.message);
@@ -808,7 +840,7 @@ class RenewPolicyPage {
         const altMobileInput = page.locator('input[name="ALT_MOBILE_NO"]');
         if (await altMobileInput.isVisible({ timeout: 2000 })) {
           await altMobileInput.clear();
-          await altMobileInput.fill(data.alternateMobileNo);
+          await altMobileInput.fill(data.personalDetails.alternateMobileNo);
         }
       } catch (e) {
         console.log('Error filling alternate mobile number:', e.message);
@@ -820,7 +852,7 @@ class RenewPolicyPage {
         const addr1Input = page.locator('input[name="ADDRESS_LINE1"], textarea[name="ADDRESS_LINE1"]');
         if (await addr1Input.isVisible({ timeout: 2000 })) {
           await addr1Input.clear();
-          await addr1Input.fill(data.addressLine1);
+          await addr1Input.fill(data.personalDetails.addressLine1);
         }
       } catch (e) {
         console.log('Error filling address line 1:', e.message);
@@ -832,7 +864,7 @@ class RenewPolicyPage {
         const addr2Input = page.locator('input[name="ADDRESS_LINE2"], textarea[name="ADDRESS_LINE2"]');
         if (await addr2Input.isVisible({ timeout: 2000 })) {
           await addr2Input.clear();
-          await addr2Input.fill(data.addressLine2);
+          await addr2Input.fill(data.personalDetails.addressLine2);
         }
       } catch (e) {
         console.log('Error filling address line 2:', e.message);
@@ -844,7 +876,7 @@ class RenewPolicyPage {
         const landmarkInput = page.locator('input[name="LANDMARK"], textarea[name="LANDMARK"]');
         if (await landmarkInput.isVisible({ timeout: 2000 })) {
           await landmarkInput.clear();
-          await landmarkInput.fill(data.landmark);
+          await landmarkInput.fill(data.personalDetails.landmark);
         }
       } catch (e) {
         console.log('Error filling landmark:', e.message);
@@ -853,7 +885,7 @@ class RenewPolicyPage {
       // State
       try {
         console.log('Filling state...');
-        await this._selectMuiOption('#mui-component-select-STATE_ID', data.state);
+        await this._selectMuiOption('#mui-component-select-STATE_ID', data.personalDetails.state);
       } catch (e) {
         console.log('Error filling state:', e.message);
       }
@@ -861,8 +893,8 @@ class RenewPolicyPage {
       // City
       try {
         console.log('Filling city...');
-        await this._selectMuiOption('#mui-component-select-CITY_ID', data.city);
-      } catch (e) {
+        await this._selectMuiOption('#mui-component-select-CITY_ID', data.personalDetails.city);
+    } catch (e) {
         console.log('Error filling city:', e.message);
       }
       
@@ -872,7 +904,7 @@ class RenewPolicyPage {
         const pincodeInput = page.locator('input[name="PIN"]');
         if (await pincodeInput.isVisible({ timeout: 2000 })) {
           await pincodeInput.clear();
-          await pincodeInput.fill(data.pincode);
+          await pincodeInput.fill(data.personalDetails.pinCode);
         }
       } catch (e) {
         console.log('Error filling pincode:', e.message);
@@ -884,7 +916,7 @@ class RenewPolicyPage {
         const panInput = page.locator('input[name="PAN_NO"]');
         if (await panInput.isVisible({ timeout: 2000 })) {
           await panInput.clear();
-          await panInput.fill(data.panNo);
+          await panInput.fill(data.personalDetails.panNo);
         }
       } catch (e) {
         console.log('Error filling PAN number:', e.message);
@@ -896,25 +928,327 @@ class RenewPolicyPage {
         const aadhaarInput = page.locator('input[name="AADHAAR_NO"]');
         if (await aadhaarInput.isVisible({ timeout: 2000 })) {
           await aadhaarInput.clear();
-          await aadhaarInput.fill(data.aadhaarNo);
+          await aadhaarInput.fill(data.personalDetails.aadhaarNo);
         }
       } catch (e) {
         console.log('Error filling Aadhaar number:', e.message);
       }
       
-      // EI Account Number
+      // EI Account Number (optional field)
       try {
         console.log('Filling EI account number...');
         const eiInput = page.locator('input[name="EI_ACCOUNT_NO"]');
         if (await eiInput.isVisible({ timeout: 2000 })) {
           await eiInput.clear();
-          await eiInput.fill(data.eiAccountNo);
+          await eiInput.fill(data.personalDetails.eiAccountNo || '');
         }
       } catch (e) {
         console.log('Error filling EI account number:', e.message);
       }
       
+      // AA Membership Details
+      try {
+        console.log('Filling AA Membership Details...');
+        
+        // Association Name
+        try {
+          await this._selectMuiOption('#mui-component-select-ASSOCIATION_NAME', data.aaMembershipDetails.associationName);
+        } catch (e) {
+          console.log('Could not fill Association Name:', e.message);
+        }
+        
+        // Membership No
+        try {
+          const membershipInput = page.locator('input[name="MEMBERSHIP_NO"]');
+          if (await membershipInput.isVisible({ timeout: 2000 })) {
+            await membershipInput.clear();
+            await membershipInput.fill(data.aaMembershipDetails.membershipNo);
+          }
+        } catch (e) {
+          console.log('Could not fill Membership No:', e.message);
+        }
+        
+        // Validity Month
+        try {
+          await this._selectMuiOption('#mui-component-select-AAMonth', data.aaMembershipDetails.validityMonth);
+        } catch (e) {
+          console.log('Could not fill Validity Month:', e.message);
+        }
+        
+        // Year
+        try {
+          const yearInput = page.locator('input[name="AAYear"]');
+          if (await yearInput.isVisible({ timeout: 2000 })) {
+            await yearInput.clear();
+            await yearInput.fill(data.aaMembershipDetails.year);
+          }
+        } catch (e) {
+          console.log('Could not fill Year:', e.message);
+        }
+      } catch (e) {
+        console.log('Error filling AA Membership Details:', e.message);
+      }
+      
+      // NCB Carry Forward Details
+      try {
+        console.log('Filling NCB Carry Forward Details...');
+        
+        // Make
+        try {
+          const makeInput = page.locator('input[name="PREV_VEH_MAKE"]');
+          if (await makeInput.isVisible({ timeout: 2000 })) {
+            await makeInput.clear();
+            await makeInput.fill(data.ncbCarryForwardDetails.make);
+          }
+        } catch (e) {
+          console.log('Could not fill Make:', e.message);
+        }
+        
+        // Model
+        try {
+          const modelInput = page.locator('input[name="PREV_VEH_MODEL"]');
+          if (await modelInput.isVisible({ timeout: 2000 })) {
+            await modelInput.clear();
+            await modelInput.fill(data.ncbCarryForwardDetails.model);
+          }
+        } catch (e) {
+          console.log('Could not fill Model:', e.message);
+        }
+        
+        // Variant
+        try {
+          const variantInput = page.locator('input[name="PREV_VEH_VARIANT_NO"]');
+          if (await variantInput.isVisible({ timeout: 2000 })) {
+            await variantInput.clear();
+            await variantInput.fill(data.ncbCarryForwardDetails.variant);
+          }
+        } catch (e) {
+          console.log('Could not fill Variant:', e.message);
+        }
+        
+        // Year Of Manufacturer
+        try {
+          await this._selectMuiOption('#mui-component-select-PREV_VEH_MANU_YEAR', data.ncbCarryForwardDetails.yearOfManufacturer);
+        } catch (e) {
+          console.log('Could not fill Year Of Manufacturer:', e.message);
+        }
+        
+        // Chassis No
+        try {
+          const chassisInput = page.locator('input[name="PREV_VEH_CHASSIS_NO"]');
+          if (await chassisInput.isVisible({ timeout: 2000 })) {
+            await chassisInput.clear();
+            await chassisInput.fill(data.ncbCarryForwardDetails.chasisNo);
+          }
+        } catch (e) {
+          console.log('Could not fill Chassis No:', e.message);
+        }
+        
+        // Engine No
+        try {
+          const engineInput = page.locator('input[name="PREV_VEH_ENGINE_NO"]');
+          if (await engineInput.isVisible({ timeout: 2000 })) {
+            await engineInput.clear();
+            await engineInput.fill(data.ncbCarryForwardDetails.engineNo);
+          }
+        } catch (e) {
+          console.log('Could not fill Engine No:', e.message);
+        }
+        
+        // Invoice Date
+        try {
+          const invoiceInput = page.locator('input[name="PREV_VEH_INVOICEDATE"]');
+          if (await invoiceInput.isVisible({ timeout: 2000 })) {
+            await this._setDateOnInput(invoiceInput, data.ncbCarryForwardDetails.invoiceDate);
+          }
+        } catch (e) {
+          console.log('Could not fill Invoice Date:', e.message);
+        }
+        
+        // Registration No
+        try {
+          const regInput = page.locator('input[name="PREV_VEH_REG_NO"]');
+          if (await regInput.isVisible({ timeout: 2000 })) {
+            await regInput.clear();
+            await regInput.fill(data.ncbCarryForwardDetails.registrationNo);
+          }
+        } catch (e) {
+          console.log('Could not fill Registration No:', e.message);
+        }
+        
+        // Previous Policy No
+        try {
+          const prevPolicyInput = page.locator('input[name="PREV_VEH_POLICY_NONVISOF"]');
+          if (await prevPolicyInput.isVisible({ timeout: 2000 })) {
+            await prevPolicyInput.clear();
+            await prevPolicyInput.fill(data.ncbCarryForwardDetails.previousPolicyNo);
+          }
+        } catch (e) {
+          console.log('Could not fill Previous Policy No:', e.message);
+        }
+        
+        // Insurance Company
+        try {
+          await this._selectMuiOption('#mui-component-select-PREV_VEH_IC', data.policyDetails.insuranceCompany);
+        } catch (e) {
+          console.log('Could not fill Insurance Company:', e.message);
+        }
+        
+        // Office Address
+        try {
+          const officeInput = page.locator('input[name="PREV_VEH_ADDRESS"]');
+          if (await officeInput.isVisible({ timeout: 2000 })) {
+            await officeInput.clear();
+            await officeInput.fill(data.policyDetails.officeAddress);
+          }
+        } catch (e) {
+          console.log('Could not fill Office Address:', e.message);
+        }
+        
+        // Policy Period From
+        try {
+          const policyFromInput = page.locator('input[name="PREV_VEH_POLICYSTARTDATE"]');
+          if (await policyFromInput.isVisible({ timeout: 2000 })) {
+            await this._setDateOnInput(policyFromInput, data.policyDetails.policyPeriodFrom);
+          }
+        } catch (e) {
+          console.log('Could not fill Policy Period From:', e.message);
+        }
+        
+        // Policy Period To
+        try {
+          const policyToInput = page.locator('input[name="PREV_VEH_POLICYENDDATE"]');
+          if (await policyToInput.isVisible({ timeout: 2000 })) {
+            await this._setDateOnInput(policyToInput, data.policyDetails.policyPeriodTo);
+          }
+        } catch (e) {
+          console.log('Could not fill Policy Period To:', e.message);
+        }
+        
+        // NCB Certificate Effective Date
+        try {
+          const ncbDateInput = page.locator('input[name="PREV_VEH_NCB_EFFECTIVE_DATE_NONVISOF"]');
+          if (await ncbDateInput.isVisible({ timeout: 2000 })) {
+            await this._setDateOnInput(ncbDateInput, data.ncbCarryForwardDetails.invoiceDate);
+          }
+        } catch (e) {
+          console.log('Could not fill NCB Certificate Effective Date:', e.message);
+        }
+        
+      } catch (e) {
+        console.log('Error filling NCB Carry Forward Details:', e.message);
+      }
+      
+      // Nominee Details
+      try {
+        console.log('Filling Nominee Details...');
+        
+        // Nominee Name
+        try {
+          const nomineeNameInput = page.locator('input[name="NomineeName"]');
+          if (await nomineeNameInput.isVisible({ timeout: 2000 })) {
+            await nomineeNameInput.clear();
+            await nomineeNameInput.fill(data.nomineeDetails.nomineeName);
+          }
+        } catch (e) {
+          console.log('Could not fill Nominee Name:', e.message);
+        }
+        
+        // Nominee Age
+        try {
+          const nomineeAgeInput = page.locator('input[name="NomineeAge"]');
+          if (await nomineeAgeInput.isVisible({ timeout: 2000 })) {
+            await nomineeAgeInput.clear();
+            await nomineeAgeInput.fill(data.nomineeDetails.nomineeAge);
+          }
+        } catch (e) {
+          console.log('Could not fill Nominee Age:', e.message);
+        }
+        
+        // Nominee Relation
+        try {
+          await this._selectMuiOption('#mui-component-select-NomineeRelation', data.nomineeDetails.nomineeRelation);
+        } catch (e) {
+          console.log('Could not fill Nominee Relation:', e.message);
+        }
+        
+        // Nominee Gender
+        try {
+          await this._selectMuiOption('#mui-component-select-NomineeGender', data.nomineeDetails.nomineeGender);
+        } catch (e) {
+          console.log('Could not fill Nominee Gender:', e.message);
+        }
+        
+      } catch (e) {
+        console.log('Error filling Nominee Details:', e.message);
+      }
+      
+      // Payment Mode
+      try {
+        console.log('Filling Payment Mode...');
+        await this._selectMuiOption('#mui-component-select-PAYMENT_MODE', data.paymentDetails.paymentMode);
+      } catch (e) {
+        console.log('Could not fill Payment Mode:', e.message);
+        // Continue with the test even if payment mode fails
+      }
+      
+      // DP Name
+      try {
+        console.log('Filling DP Name...');
+        await this._selectMuiOption('#mui-component-select-AgentID', data.paymentDetails.dpName);
+      } catch (e) {
+        console.log('Could not fill DP Name:', e.message);
+      }
+      
       console.log('Finished filling proposal details form');
+      
+      // Print all filled form data for review
+      console.log('\n=== FORM DATA REVIEW ===');
+      console.log('Personal Details:');
+      console.log(`  Salutation: ${data.personalDetails.salutation}`);
+      console.log(`  First Name: ${data.personalDetails.firstName}`);
+      console.log(`  Middle Name: ${data.personalDetails.middleName}`);
+      console.log(`  Last Name: ${data.personalDetails.lastName}`);
+      console.log(`  Date of Birth: ${data.personalDetails.dateOfBirth}`);
+      console.log(`  Email: ${data.personalDetails.email}`);
+      console.log(`  Mobile: ${data.personalDetails.mobileNo}`);
+      console.log(`  Alternate Mobile: ${data.personalDetails.alternateMobileNo}`);
+      console.log(`  Address Line 1: ${data.personalDetails.addressLine1}`);
+      console.log(`  Address Line 2: ${data.personalDetails.addressLine2}`);
+      console.log(`  Landmark: ${data.personalDetails.landmark}`);
+      console.log(`  State: ${data.personalDetails.state}`);
+      console.log(`  City: ${data.personalDetails.city}`);
+      console.log(`  Pin Code: ${data.personalDetails.pinCode}`);
+      console.log(`  PAN No: ${data.personalDetails.panNo}`);
+      console.log(`  Aadhaar No: ${data.personalDetails.aadhaarNo}`);
+      console.log(`  EI Account No: ${data.personalDetails.eiAccountNo || 'Not provided'}`);
+      
+      console.log('\nAA Membership Details:');
+      console.log(`  Association Name: ${data.aaMembershipDetails.associationName}`);
+      console.log(`  Membership No: ${data.aaMembershipDetails.membershipNo}`);
+      console.log(`  Validity Month: ${data.aaMembershipDetails.validityMonth}`);
+      console.log(`  Year: ${data.aaMembershipDetails.year}`);
+      
+      console.log('\nNCB Carry Forward Details:');
+      console.log(`  Previous Policy No: ${data.ncbCarryForwardDetails.previousPolicyNo}`);
+      console.log(`  NCB Document Submitted: ${data.ncbCarryForwardDetails.ncbDocumentSubmitted}`);
+      
+      console.log('\nPolicy Details:');
+      console.log(`  Policy Period From: ${data.policyDetails.policyPeriodFrom}`);
+      console.log(`  Policy Period To: ${data.policyDetails.policyPeriodTo}`);
+      console.log(`  Insurance Company: ${data.policyDetails.insuranceCompany}`);
+      console.log(`  Office Address: ${data.policyDetails.officeAddress}`);
+      
+      console.log('\nNominee Details:');
+      console.log(`  Nominee Name: ${data.nomineeDetails.nomineeName}`);
+      console.log(`  Nominee Age: ${data.nomineeDetails.nomineeAge}`);
+      console.log(`  Nominee Relation: ${data.nomineeDetails.nomineeRelation}`);
+      console.log(`  Nominee Gender: ${data.nomineeDetails.nomineeGender}`);
+      
+      console.log('\nPayment Details:');
+      console.log(`  Payment Mode: ${data.paymentDetails.paymentMode}`);
+      console.log(`  DP Name: ${data.paymentDetails.dpName}`);
+      console.log('=== END FORM DATA REVIEW ===\n');
       
     } catch (e) {
       console.log('Error in _fillProposalDetails:', e.message);
