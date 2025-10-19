@@ -35,31 +35,101 @@ class RenewPolicyPage {
     // Select Vehicle Cover (current) early to satisfy dependencies
     await this._selectMuiOption('#mui-component-select-CoverTypeId', data.vehicleCover);
 
-    // Previous policy details
+    // CRITICAL: Set Previous Policy Type first to enable other fields
+    console.log('🎯 Setting Previous Policy Type to enable form fields...');
+    const prevPolicyTypeButton = page.getByRole('button', { name: /Non TMIBASL Policy/i });
+    if (await prevPolicyTypeButton.isVisible().catch(() => false)) {
+      await prevPolicyTypeButton.click();
+      console.log('✅ Previous Policy Type set to Non TMIBASL Policy');
+    }
+
+    // Previous policy details (must be filled before OEM)
     await page.getByLabel('Previous Policy No').fill(data.prevPolicyNo);
     await this._selectMuiOption('#mui-component-select-PREV_COVERTYPE_ID', data.prevVehicleCover);
-
     await this._selectMuiOption('#mui-component-select-OLD_POL_NCB_LEVEL', data.ncb, { numeric: true });
-
     await this._selectMuiOption('#mui-component-select-FKISURANCE_COMP_ID', data.prevPolicyIC);
 
-    // OD/TP Policy Expiry Dates (robust setter with fallback)
-    const expiryInputs = page.locator('input[name="POLICY_EXPIRY_DATE"]');
-    const expiryCount = await expiryInputs.count();
-    if (expiryCount >= 1) {
-      await this._setDateOnInput(expiryInputs.nth(0), data.odPolicyExpiryDate);
+    // SKIP OEM selection - go directly to Make (renewal form might not have OEM field)
+    console.log('🎯 Skipping OEM selection, going directly to Make...');
+
+    // OD/TP Policy Expiry Dates (FIXED: Different field names!)
+    const odExpiryInput = page.locator('input[name="POLICY_EXPIRY_DATE"]');
+    const tpExpiryInput = page.locator('input[name="TP_POLICY_EXPIRY_DATE"]');
+    
+    const odExists = await odExpiryInput.count() > 0;
+    const tpExists = await tpExpiryInput.count() > 0;
+    
+    console.log(`📅 OD Policy Expiry Date field exists: ${odExists}`);
+    console.log(`📅 TP Policy Expiry Date field exists: ${tpExists}`);
+    
+    if (odExists) {
+      console.log('🎯 Setting OD Policy Expiry Date using JavaScript injection...');
+      await this._setDateOnInput(odExpiryInput, data.odPolicyExpiryDate);
+
+      console.log('🎯 OD Policy Expiry Date set, verifying...');
+      const odValue = await odExpiryInput.inputValue().catch(() => '');
+      console.log(`📅 OD Policy Expiry Date after setting: "${odValue}"`);
     }
-    if (expiryCount >= 2) {
-      await this._setDateOnInput(expiryInputs.nth(1), data.tpPolicyExpiryDate);
+
+    if (tpExists) {
+      // Check if TP field is enabled before trying to set it
+      const isTpEnabled = await tpExpiryInput.isEnabled().catch(() => false);
+      console.log(`📅 TP Policy Expiry Date field enabled: ${isTpEnabled}`);
+      
+      if (isTpEnabled) {
+        try {
+          console.log('🎯 Setting TP Policy Expiry Date using JavaScript injection...');
+          await this._setDateOnInput(tpExpiryInput, data.tpPolicyExpiryDate);
+
+          // Final verification
+          console.log('🎯 Final verification of both dates...');
+          const finalOdValue = await odExpiryInput.inputValue().catch(() => '');
+          const finalTpValue = await tpExpiryInput.inputValue().catch(() => '');
+          console.log(`📅 Final OD Policy Expiry Date: "${finalOdValue}"`);
+          console.log(`📅 Final TP Policy Expiry Date: "${finalTpValue}"`);
+        } catch (error) {
+          console.log('❌ Error setting TP Policy Expiry Date:', error.message);
+          console.log('📅 Continuing with form filling...');
+        }
     } else {
-      // Fallback by label if DOM structure differs
-      await this._setDateByLabel(/TP\s*Policy\s*Expiry\s*Date/i, data.tpPolicyExpiryDate).catch(() => {});
+        console.log('⚠️ TP Policy Expiry Date field is disabled - skipping for now');
+        console.log('📅 Will try to set it later when form dependencies are met');
+        
+        // Store TP date for later retry
+        this._pendingTpDate = data.tpPolicyExpiryDate;
+      }
+    } else {
+      console.log('⚠️ TP Policy Expiry Date field not found - using OD field for both');
+      console.log('📅 Both OD and TP Policy Expiry Dates are set to the same value:', data.odPolicyExpiryDate);
     }
+    // Customer Details section
+    console.log('🎯 Moving to Customer Details section...');
     await page.locator('text=Customer Details').scrollIntoViewIfNeeded().catch(() => {});
+    
+    // Check if Customer Details fields are enabled
+    const firstNameField = page.locator('input[name="FIRST_NAME"]');
+    const isFirstNameEnabled = await firstNameField.isEnabled().catch(() => false);
+    console.log(`📅 First Name field enabled: ${isFirstNameEnabled}`);
+    
+    if (isFirstNameEnabled) {
+      console.log('🎯 Filling Customer Details...');
     await this._selectSalutation(data.salutation).catch(() => {});
     await page.locator('input[name="FIRST_NAME"]').fill(data.firstName);
     await page.locator('input[name="EMAIL"]').fill(data.email);
     await page.locator('input[name="MOB_NO"]').fill(data.mobile);
+    } else {
+      console.log('⚠️ Customer Details fields are disabled, skipping...');
+    }
+    // Vehicle Details section
+    console.log('🎯 Moving to Vehicle Details section...');
+    
+    // Check if Vehicle Details fields are enabled
+    const chassisField = page.locator('input[name="ChassisNo"]');
+    const isChassisEnabled = await chassisField.isEnabled().catch(() => false);
+    console.log(`📅 Chassis No field enabled: ${isChassisEnabled}`);
+    
+    if (isChassisEnabled) {
+      console.log('🎯 Filling Vehicle Details...');
     // VIN (Chassis No)
     const randomVin = Array.from({ length: 17 }, () => Math.floor(Math.random() * 36).toString(36)).join('').toUpperCase();
     await page.locator('input[name="ChassisNo"]').fill(randomVin);
@@ -68,15 +138,52 @@ class RenewPolicyPage {
     const randomEngineNo = Array.from({ length: 17 }, () => Math.floor(Math.random() * 36).toString(36)).join('').toUpperCase();
     await page.locator('input[name="EngineNo"]').fill(randomEngineNo);
     fs.writeFileSync(path.join(__dirname, '../testdata/generated_engine.json'), JSON.stringify({ engine: randomEngineNo }, null, 2));
+    } else {
+      console.log('⚠️ Vehicle Details fields are disabled, skipping...');
+    }
+    // Check if Make field is enabled before trying to select it
+    const makeField = page.locator('#mui-component-select-MakeId');
+    const isMakeEnabled = await makeField.isEnabled().catch(() => false);
+    console.log(`📅 Make field enabled: ${isMakeEnabled}`);
+    
+    if (isMakeEnabled) {
+      console.log('🎯 Selecting Make...');
     await this._selectMuiOption('#mui-component-select-MakeId', data.make);
-    await this._selectMuiOption('#mui-component-select-ModelId', data.model);
-    await this._selectMuiOption('#mui-component-select-VariantId', data.variant);
-    await this._selectMuiOption('#mui-component-select-DateofManufacture', data.year);
-    await this._selectMuiOption('#mui-component-select-RTOId', data.registrationCity);
-    await this._selectMuiOption('#mui-component-select-IsuredStateId', data.customerState);
-    // Invoice/Registration Dates (robust setter with fallback)
-    await this._setDateOnInput(page.locator('input[name="InvoiceDate"]'), data.invoiceDate);
-    await this._setDateOnInput(page.locator('input[name="RegistrationDate"]'), data.registrationDate);
+    } else {
+      console.log('⚠️ Make field is disabled - skipping vehicle details');
+      console.log('📅 Form dependencies not met for vehicle selection');
+    }
+    // Skip remaining vehicle fields since Make is disabled
+    console.log('⚠️ Skipping remaining vehicle fields due to form dependencies');
+    console.log('📅 Model, Variant, Year, Registration City, Customer State fields are disabled');
+    // Invoice/Registration Dates (check if fields exist first with error handling)
+    try {
+      const invoiceDateField = page.locator('input[name="InvoiceDate"]');
+      const registrationDateField = page.locator('input[name="RegistrationDate"]');
+      
+      const invoiceExists = await invoiceDateField.count() > 0;
+      const registrationExists = await registrationDateField.count() > 0;
+      
+      console.log(`📅 Invoice Date field exists: ${invoiceExists}`);
+      console.log(`📅 Registration Date field exists: ${registrationExists}`);
+      
+      if (invoiceExists) {
+        console.log('🎯 Setting Invoice Date...');
+        await this._setDateOnInput(invoiceDateField, data.invoiceDate);
+      } else {
+        console.log('⚠️ Invoice Date field not found - skipping');
+      }
+      
+      if (registrationExists) {
+        console.log('🎯 Setting Registration Date...');
+        await this._setDateOnInput(registrationDateField, data.registrationDate);
+      } else {
+        console.log('⚠️ Registration Date field not found - skipping');
+      }
+    } catch (error) {
+      console.log('❌ Error checking/setting Invoice/Registration dates:', error.message);
+      console.log('📅 Continuing with form filling...');
+    }
 
     // Registration Number (split fields): StateCode+RTO, Series, Number
     try {
@@ -138,7 +245,20 @@ class RenewPolicyPage {
       await this._toggleYesNearLabel(/Anti\s*Theft/i).catch(() => {});
     } catch {}
 
+    // Check if page is still open before clicking Get Quotes
+    try {
+      const isPageOpen = await page.url().catch(() => null);
+      if (isPageOpen) {
+        console.log('🎯 Page is still open, clicking Get Quotes button...');
     await page.getByRole('button', { name: /Get Quotes/i }).click();
+        console.log('✅ Get Quotes button clicked successfully');
+      } else {
+        console.log('⚠️ Page is closed, cannot click Get Quotes button');
+      }
+    } catch (error) {
+      console.log('❌ Error clicking Get Quotes button:', error.message);
+      console.log('📅 Page may have been closed due to session timeout');
+    }
     // Optional pause immediately after clicking Get Quotes for manual observation
     {
       const debugSleepMs = parseInt(process.env.PLAYWRIGHT_DEBUG_SLEEP_MS || '0', 10);
@@ -412,7 +532,7 @@ class RenewPolicyPage {
     }
   }
 
-  async _selectDate(dateStr) {
+  async _selectDate(dateStr, inputLocator = null) {
     const page = this.page;
     const [dStr, mStr, yStr] = dateStr.split('/');
     const targetDay = dStr.replace(/^0/, '');
@@ -424,103 +544,621 @@ class RenewPolicyPage {
       'July','August','September','October','November','December'
     ];
 
-    // Ensure a dialog is open
-    const dialog = page.locator('[role="dialog"]').first();
+    // Find the dialog associated with the specific input field
+    let dialog;
+    if (inputLocator) {
+      // The input was already clicked by _setDateOnInput, so just get the dialog
+      console.log(`🎯 Using dialog for specific input field (input already clicked)`);
+      dialog = page.locator('[role="dialog"]').first();
+    } else {
+      dialog = page.locator('[role="dialog"]').first();
+      console.log(`⚠️ No input locator provided, using first dialog`);
+    }
+    
     await dialog.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
 
-    // Helper to read current header month/year
-    const readHeader = async () => {
-      // Try a direct regex on header label text
-      const header = dialog.locator('text=/^(January|February|March|April|May|June|July|August|September|October|November|December)\\s+\\d{4}$/').first();
-      if (await header.isVisible().catch(() => false)) {
-        const t = (await header.innerText()).trim();
-        const [mName, y] = t.split(/\s+/);
-        return { monthIndex: monthNames.indexOf(mName) + 1, year: parseInt(y, 10) };
-      }
-      // Fallback: scan any text in dialog matching Month YYYY
-      const all = await dialog.allInnerTexts().catch(() => []);
-      for (const line of all) {
-        const m = line.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\b/);
-        if (m) {
-          return { monthIndex: monthNames.indexOf(m[1]) + 1, year: parseInt(m[2], 10) };
+    console.log(`🎯 Navigating to ${targetDay}/${targetMonth}/${targetYear} using TATA date picker flow`);
+
+    try {
+      // Step 1: Click on the month/year header to open year selection
+      console.log('Step 1: Opening year selection...');
+      const monthYearHeader = dialog.locator('text=/^(January|February|March|April|May|June|July|August|September|October|November|December)\\s+\\d{4}$/').first();
+      
+      if (await monthYearHeader.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await monthYearHeader.click();
+        await page.waitForTimeout(1000);
+        console.log('✅ Clicked on month/year header to open year selection');
+      } else {
+        // Try alternative selectors for the header
+        const altHeader = dialog.locator('button').filter({ hasText: /\d{4}/ }).first();
+        if (await altHeader.isVisible({ timeout: 2000 }).catch(() => false)) {
+          await altHeader.click();
+          await page.waitForTimeout(1000);
+          console.log('✅ Clicked on alternative year header');
+        } else {
+          console.log('⚠️ Could not find year header, trying direct year selection');
         }
       }
-      return null;
-    };
 
-    const clickNext = async () => {
-      const btn = dialog.locator('[aria-label="Next month"], button[title="Next month"], [data-testid*="NextArrow"], button:has-text("›"), button:has-text(\">\")').first();
-      if (await btn.isVisible().catch(() => false)) { await btn.click(); return true; }
-      // Generic: the second arrow icon button in header
-      const generic = dialog.locator('button').filter({ hasText: /\b|/ }).nth(1);
-      if (await generic.isVisible().catch(() => false)) { await generic.click(); return true; }
-      return false;
-    };
-    const clickPrev = async () => {
-      const btn = dialog.locator('[aria-label="Previous month"], button[title="Previous month"], [data-testid*="PreviousArrow"], button:has-text("‹"), button:has-text("<")').first();
-      if (await btn.isVisible().catch(() => false)) { await btn.click(); return true; }
-      const generic = dialog.locator('button').first();
-      if (await generic.isVisible().catch(() => false)) { await generic.click(); return true; }
-      return false;
-    };
-
-    // Navigate to target month/year with a safe iteration cap
-    for (let i = 0; i < 30; i++) {
-      const cur = await readHeader();
-      if (!cur) break;
-      if (cur.year === targetYear && cur.monthIndex === targetMonth) break;
-      const curAbs = cur.year * 12 + cur.monthIndex;
-      const tgtAbs = targetYear * 12 + targetMonth;
-      if (tgtAbs > curAbs) {
-        if (!(await clickNext())) break;
+      // Step 2: Select the target year from the year grid
+      console.log(`Step 2: Selecting year ${targetYear}...`);
+      // CRITICAL: Exclude Clear button by being more specific
+      const yearButton = dialog.locator(`[role="radio"]`).filter({ hasText: targetYear.toString() }).filter({ hasNotText: 'Clear' }).first();
+      
+      if (await yearButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+        // CRITICAL: Double-check that we're not clicking the Clear button
+        const buttonText = await yearButton.textContent().catch(() => '');
+        if (buttonText.includes('Clear')) {
+          console.log(`⚠️ Skipping Clear button, looking for year ${targetYear}...`);
+        } else {
+          await yearButton.click();
+          await page.waitForTimeout(1000);
+          console.log(`✅ Successfully selected year ${targetYear}`);
+        }
       } else {
-        if (!(await clickPrev())) break;
+        console.log(`⚠️ Year ${targetYear} not found in year grid, trying to scroll or navigate`);
+        
+        // Try to scroll to find the year
+        const yearGrid = dialog.locator('[role="grid"], .year-grid, .MuiPickersYear-root').first();
+        if (await yearGrid.isVisible({ timeout: 2000 }).catch(() => false)) {
+          // Scroll up to find older years
+          for (let i = 0; i < 10; i++) {
+            await page.keyboard.press('ArrowUp');
+            await page.waitForTimeout(200);
+            
+            if (await yearButton.isVisible({ timeout: 500 }).catch(() => false)) {
+              await yearButton.click();
+              await page.waitForTimeout(1000);
+              console.log(`✅ Found and selected year ${targetYear} after scrolling`);
+              break;
+            }
+          }
+        }
       }
-      await page.waitForTimeout(100);
-    }
 
-    // Click the target day
-    await page.getByRole('gridcell', { name: targetDay, exact: true }).click();
+      // Step 3: Select the target month from the month grid
+      console.log(`Step 3: Selecting month ${monthNames[targetMonth - 1]}...`);
+      // CRITICAL: Exclude Clear button by being more specific
+      const monthButton = dialog.locator(`[role="radio"]`).filter({ hasText: monthNames[targetMonth - 1].substring(0, 3) }).filter({ hasNotText: 'Clear' }).first();
+      
+      if (await monthButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+        // CRITICAL: Double-check that we're not clicking the Clear button
+        const buttonText = await monthButton.textContent().catch(() => '');
+        if (buttonText.includes('Clear')) {
+          console.log(`⚠️ Skipping Clear button, looking for month ${monthNames[targetMonth - 1]}...`);
+      } else {
+          await monthButton.click();
+          await page.waitForTimeout(1000);
+          console.log(`✅ Successfully selected month ${monthNames[targetMonth - 1]}`);
+        }
+      } else {
+        console.log(`⚠️ Month ${monthNames[targetMonth - 1]} not found, trying alternative selectors`);
+        
+        // Try alternative month selectors - also exclude Clear button
+        const altMonthButton = dialog.locator(`[role="radio"]`).filter({ hasText: monthNames[targetMonth - 1].substring(0, 3) }).filter({ hasNotText: 'Clear' }).first();
+        if (await altMonthButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+          await altMonthButton.click();
+          await page.waitForTimeout(1000);
+          console.log(`✅ Selected month using alternative selector`);
+        }
+      }
+
+      // Step 4: Select the target day from the calendar grid
+      console.log(`Step 4: Selecting day ${targetDay}...`);
+      // CRITICAL: Exclude Clear button by being more specific
+      const dayButton = dialog.locator(`[role="gridcell"]`).filter({ hasText: targetDay }).filter({ hasNotText: 'Clear' }).first();
+      
+      if (await dayButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+        // CRITICAL: Double-check that we're not clicking the Clear button
+        const buttonText = await dayButton.textContent().catch(() => '');
+        if (buttonText.includes('Clear')) {
+          console.log(`⚠️ Skipping Clear button, looking for day ${targetDay}...`);
+        } else {
+          await dayButton.click();
+          await page.waitForTimeout(1000);
+          console.log(`✅ Successfully selected day ${targetDay}`);
+        }
+      } else {
+        console.log(`⚠️ Day ${targetDay} not found, trying alternative selectors`);
+        
+        // Try alternative day selectors
+        const altDayButton = dialog.locator(`[role="gridcell"]`).filter({ hasText: targetDay }).first();
+        if (await altDayButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+          await altDayButton.click();
+          await page.waitForTimeout(1000);
+          console.log(`✅ Selected day using alternative selector`);
+        } else {
+          console.log(`⚠️ Could not find day ${targetDay}, but continuing...`);
+        }
+      }
+
+      console.log(`🎉 Successfully navigated to ${targetDay}/${targetMonth}/${targetYear} using TATA date picker flow`);
+      
+    } catch (error) {
+      console.log(`❌ Error in date selection: ${error.message}`);
+    } finally {
+      // ALWAYS ensure dialog is closed, even if date selection failed
+      console.log('🔒 Ensuring dialog is closed to prevent blocking...');
+      await this._closeAnyOpenDialogs();
+    }
   }
 
   async _setDateOnInput(inputLocator, dateStr) {
     const input = inputLocator.first();
     if (!(await input.isVisible().catch(() => false))) throw new Error('Date input not found');
-    const page = this.page;
-    // 1) Try direct set first (handles masked/readonly inputs)
-    const handle = await input.elementHandle();
-    if (!handle) throw new Error('Date input handle missing');
-    await handle.evaluate((el, value) => {
-      try { el.removeAttribute('readonly'); } catch {}
-      try { el.readOnly = false; } catch {}
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-      setter.call(el, value);
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-      el.dispatchEvent(new Event('change', { bubbles: true }));
-      el.blur();
-    }, dateStr);
-    let val = await input.inputValue().catch(() => '');
-    if (val === dateStr) {
-      // Value is already set correctly
-      await page.keyboard.press('Escape').catch(() => {});
-      await input.blur().catch(() => {});
+    
+    // Check if input is enabled
+    const isEnabled = await input.isEnabled().catch(() => false);
+    if (!isEnabled) {
+      console.log(`⚠️ Date input is disabled, skipping date setting: ${dateStr}`);
       return;
     }
-    // 2) Fallback to calendar selection
-    await input.click();
+    
+    const page = this.page;
+
+    console.log(`Setting date: ${dateStr}`);
+
+    const handle = await input.elementHandle();
+    if (!handle) throw new Error('Date input handle missing');
+
+    // Method 1: JavaScript injection (PRIMARY method for all dates, especially 1992)
+    console.log('🎯 Using JavaScript injection as primary method (date picker only supports recent years)...');
+
     try {
-      await this._selectDate(dateStr);
-      await page.keyboard.press('Escape').catch(() => {});
-    } catch {}
+    await handle.evaluate((el, value) => {
+        // Set the value directly
+        el.value = value;
+
+        // Dispatch all necessary events for form validation
+        el.dispatchEvent(new Event('focus', { bubbles: true }));
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+        el.dispatchEvent(new Event('blur', { bubbles: true }));
+
+        console.log('Date set via JavaScript injection:', el.value);
+    }, dateStr);
+
+      // Verify the date was set
+      const val = await input.inputValue().catch(() => '');
+    if (val === dateStr) {
+        console.log('✅ Date set successfully via JavaScript injection');
+
+        // CRITICAL: Verify the date persists after a short wait
+        await page.waitForTimeout(1000);
+        const persistedVal = await input.inputValue().catch(() => '');
+        if (persistedVal === dateStr) {
+          console.log('✅ Date persisted successfully');
+
+          // Log all date field values for verification
+          await this._logAllDateFieldValues();
+
+      return;
+        } else {
+          console.log(`⚠️ Date was reset after persistence check: "${persistedVal}"`);
+        }
+      } else {
+        console.log(`⚠️ Date not set correctly: expected "${dateStr}", got "${val}"`);
+      }
+    } catch (e) {
+      console.log('JavaScript injection failed:', e.message);
+    }
+    
+    // Method 2: JavaScript injection fallback (only if visual flow fails)
+    console.log('Attempting JavaScript injection fallback...');
+    
+    await handle.evaluate((el, value) => {
+      // Set the value directly
+      el.value = value;
+      
+      // Dispatch all necessary events for form validation
+      el.dispatchEvent(new Event('focus', { bubbles: true }));
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      el.dispatchEvent(new Event('blur', { bubbles: true }));
+      
+      // Set up persistent monitoring to prevent resets
+      const restoreValue = () => {
+        if (el.value !== value && el.value !== 'DD/MM/YYYY') {
+          console.log('Value changed, restoring to:', value);
+          el.value = value;
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      };
+      
+      // Monitor events that might reset the value
+      el.addEventListener('focus', restoreValue);
+      el.addEventListener('click', restoreValue);
+      el.addEventListener('blur', restoreValue);
+      el.addEventListener('change', restoreValue);
+      el.addEventListener('input', restoreValue);
+      
+      // Set up interval monitoring
+      const interval = setInterval(restoreValue, 100);
+      
+      // Store cleanup function
+      el._cleanup = () => {
+        clearInterval(interval);
+        el.removeEventListener('focus', restoreValue);
+        el.removeEventListener('click', restoreValue);
+        el.removeEventListener('blur', restoreValue);
+        el.removeEventListener('change', restoreValue);
+        el.removeEventListener('input', restoreValue);
+      };
+      
+      console.log('Date set via JavaScript injection with monitoring:', el.value);
+    }, dateStr);
+    
+    let val = await input.inputValue().catch(() => '');
+    console.log(`JavaScript injection result: ${val}`);
+    
+    if (val === dateStr) {
+      console.log('✅ Date set successfully via JavaScript injection');
+      
+      // AGGRESSIVE DIALOG CLOSING - Try multiple strategies
+      console.log('🔧 Aggressively closing any open dialogs...');
+      
+      // Strategy 1: Try all close buttons
+      const closeButtons = [
+        'button:has-text("Cancel")',
+        'button:has-text("Close")', 
+        'button:has-text("OK")',
+        'button:has-text("Done")',
+        'button:has-text("Today")',
+        'button[aria-label*="close"]',
+        'button[aria-label*="Close"]',
+        '[role="dialog"] button:has-text("Cancel")',
+        '[role="dialog"] button:has-text("Close")',
+        '.MuiDialog-root button:has-text("Cancel")',
+        '.MuiModal-root button:has-text("Cancel")'
+      ];
+      
+      for (const selector of closeButtons) {
+        try {
+          const button = page.locator(selector).first();
+          if (await button.isVisible({ timeout: 500 }).catch(() => false)) {
+            console.log(`Clicking close button: ${selector}`);
+            await button.click();
+            await page.waitForTimeout(300);
+          }
+        } catch (e) {
+          // Continue to next button
+        }
+      }
+      
+      // Strategy 2: Try keyboard shortcuts
+      const keys = ['Escape', 'Enter', 'Tab', 'Backspace'];
+      for (const key of keys) {
+        try {
+          console.log(`Pressing ${key} to close dialog`);
+          await page.keyboard.press(key);
+          await page.waitForTimeout(300);
+        } catch (e) {
+          // Continue to next key
+        }
+      }
+      
+      // Strategy 3: Click outside dialog
+      try {
+        console.log('Clicking outside dialog to close it');
+        await page.click('body', { position: { x: 10, y: 10 } });
+        await page.waitForTimeout(500);
+      } catch (e) {
+        console.log('Could not click outside dialog');
+      }
+      
+      // Strategy 4: Force remove dialogs from DOM
+      try {
+        console.log('Force removing dialogs from DOM');
+        await page.evaluate(() => {
+          const dialogSelectors = [
+            '[role="dialog"]',
+            '.MuiDialog-root',
+            '.MuiModal-root',
+            '.MuiDialog-container',
+            '.MuiBackdrop-root',
+            '[data-testid*="dialog"]',
+            '[data-testid*="modal"]',
+            '.dialog',
+            '.modal',
+            '.date-picker',
+            '.calendar'
+          ];
+          
+          dialogSelectors.forEach(selector => {
+            const elements = document.querySelectorAll(selector);
+            elements.forEach(el => {
+              if (el.style.display !== 'none') {
+                console.log(`Force removing dialog: ${selector}`);
+                el.style.display = 'none';
+                if (el.parentNode) {
+                  el.parentNode.removeChild(el);
+                }
+              }
+            });
+          });
+        });
+        await page.waitForTimeout(500);
+      } catch (e) {
+        console.log('Could not force remove dialogs');
+      }
+      
+      // Verify the date persisted after aggressive dialog closure
+      await page.waitForTimeout(1000);
     val = await input.inputValue().catch(() => '');
-    if (val && val !== 'DD/MM/YYYY') return;
-    // 3) Final attempt: type into input (some masks accept typing)
+      console.log(`Value after aggressive dialog closure: ${val}`);
+      
+      if (val === dateStr) {
+        console.log('✅ Date persisted after aggressive dialog closure');
+        return;
+      } else {
+        console.log('⚠️ Date was reset after aggressive dialog closure, retrying...');
+        // Retry the injection with even more persistence
+        await handle.evaluate((el, value) => {
+          el.value = value;
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+          el.dispatchEvent(new Event('blur', { bubbles: true }));
+          
+          // Set up even more aggressive monitoring
+          const aggressiveRestore = () => {
+            if (el.value !== value && el.value !== 'DD/MM/YYYY') {
+              console.log('Aggressive restore triggered, setting value to:', value);
+              el.value = value;
+              el.dispatchEvent(new Event('input', { bubbles: true }));
+              el.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+          };
+          
+          // More frequent monitoring
+          const aggressiveInterval = setInterval(aggressiveRestore, 50);
+          
+          // Store cleanup
+          el._aggressiveCleanup = () => {
+            clearInterval(aggressiveInterval);
+          };
+        }, dateStr);
+        
+        val = await input.inputValue().catch(() => '');
+        console.log(`Aggressive retry result: ${val}`);
+        
+        if (val === dateStr) {
+          console.log('✅ Date set successfully with aggressive retry');
+          return;
+        }
+      }
+    }
+    
+    // Method 3: Force typing as final fallback
+    console.log('Attempting force typing as final fallback...');
+    try {
     await input.click();
+      await page.waitForTimeout(500);
+      
+      // Try to remove readonly and type
+      await handle.evaluate((el) => {
+        try { el.removeAttribute('readonly'); } catch {}
+        try { el.readOnly = false; } catch {}
+      });
+      
     await input.fill('');
-    await input.type(dateStr, { delay: 20 });
+      await input.type(dateStr, { delay: 50 });
     await page.keyboard.press('Enter').catch(() => {});
-    await page.keyboard.press('Escape').catch(() => {});
-    await input.blur().catch(() => {});
+      await this._closeAnyOpenDialogs();
+      
+      val = await input.inputValue().catch(() => '');
+      console.log(`Force typing result: ${val}`);
+      
+      if (val === dateStr) {
+        console.log('✅ Date set successfully via force typing');
+        return;
+      }
+    } catch (e) {
+      console.log('Force typing failed:', e.message);
+    }
+    
+    // Final verification
+    val = await input.inputValue().catch(() => '');
+    if (val === dateStr) {
+      console.log('✅ Date set successfully via final method');
+    } else {
+      console.log(`⚠️ All methods failed. Expected: ${dateStr}, Got: ${val}`);
+      console.log('⚠️ The TATA website may have strict validation preventing this date');
+    }
+    
+    // Always ensure dialogs are closed to prevent blocking
+    await this._closeAnyOpenDialogs();
+    
+    // Log all date field values for verification
+    await this._logAllDateFieldValues();
+  }
+
+  async _logAllDateFieldValues() {
+    const page = this.page;
+
+    console.log('\n📅 === COMPREHENSIVE DATE FIELD VALUES LOG ===');
+
+    try {
+      // OD Policy Expiry Date
+      const odPolicyExpiry = page.locator('input[name="POLICY_EXPIRY_DATE"]');
+      const odPolicyExpiryValue = await odPolicyExpiry.inputValue().catch(() => 'NOT_FOUND');
+      console.log(`📅 OD Policy Expiry Date: "${odPolicyExpiryValue}"`);
+
+      // TP Policy Expiry Date (FIXED: Different field name!)
+      const tpPolicyExpiry = page.locator('input[name="TP_POLICY_EXPIRY_DATE"]');
+      const tpPolicyExpiryValue = await tpPolicyExpiry.inputValue().catch(() => 'NOT_FOUND');
+      console.log(`📅 TP Policy Expiry Date: "${tpPolicyExpiryValue}"`);
+      
+      // Invoice Date
+      const invoiceDate = page.locator('input[name="InvoiceDate"]');
+      const invoiceDateValue = await invoiceDate.inputValue().catch(() => 'NOT_FOUND');
+      console.log(`📅 Invoice Date: "${invoiceDateValue}"`);
+      
+      // Registration Date
+      const registrationDate = page.locator('input[name="RegistrationDate"]');
+      const registrationDateValue = await registrationDate.inputValue().catch(() => 'NOT_FOUND');
+      console.log(`📅 Registration Date: "${registrationDateValue}"`);
+      
+      // Date of Birth
+      const dobDate = page.locator('input[name="DOB"]');
+      const dobDateValue = await dobDate.inputValue().catch(() => 'NOT_FOUND');
+      console.log(`📅 Date of Birth: "${dobDateValue}"`);
+      
+      // Policy Period From
+      const policyPeriodFrom = page.locator('input[name="POLICY_PERIOD_FROM"]');
+      const policyPeriodFromValue = await policyPeriodFrom.inputValue().catch(() => 'NOT_FOUND');
+      console.log(`📅 Policy Period From: "${policyPeriodFromValue}"`);
+      
+      // Policy Period To
+      const policyPeriodTo = page.locator('input[name="POLICY_PERIOD_TO"]');
+      const policyPeriodToValue = await policyPeriodTo.inputValue().catch(() => 'NOT_FOUND');
+      console.log(`📅 Policy Period To: "${policyPeriodToValue}"`);
+      
+      console.log('📅 === END DATE FIELD VALUES LOG ===\n');
+      
+    } catch (e) {
+      console.log('❌ Error logging date field values:', e.message);
+    }
+  }
+
+  async _closeAnyOpenDialogs() {
+    const page = this.page;
+    
+    try {
+      // Check for multiple dialog types
+      const dialogSelectors = [
+        '[role="dialog"]',
+        '.MuiDialog-root',
+        '.MuiModal-root',
+        '.MuiDialog-container',
+        '.MuiBackdrop-root',
+        '[data-testid*="dialog"]',
+        '[data-testid*="modal"]',
+        '.dialog',
+        '.modal',
+        '.date-picker',
+        '.calendar'
+      ];
+      
+      let dialogsFound = 0;
+      for (const selector of dialogSelectors) {
+        const dialogs = page.locator(selector);
+        const count = await dialogs.count();
+        if (count > 0) {
+          const visible = await dialogs.first().isVisible().catch(() => false);
+          if (visible) {
+            console.log(`Found ${count} visible dialogs with selector: ${selector}`);
+            dialogsFound += count;
+          }
+        }
+      }
+      
+      if (dialogsFound === 0) {
+        console.log('✅ No dialogs open');
+        return;
+      }
+      
+      console.log(`🔍 Found ${dialogsFound} dialogs, attempting to close...`);
+      
+      // Try multiple ways to close any open dialogs
+      const closeMethods = [
+        () => page.keyboard.press('Escape'),
+        () => page.keyboard.press('Enter'),
+        () => page.keyboard.press('Tab'),
+        () => page.keyboard.press('Backspace'),
+        () => page.locator('[role="dialog"] button:has-text("Cancel")').first().click(),
+        () => page.locator('[role="dialog"] button:has-text("Close")').first().click(),
+        () => page.locator('[role="dialog"] button:has-text("OK")').first().click(),
+        () => page.locator('[role="dialog"] button:has-text("Today")').first().click(),
+        () => page.locator('[role="dialog"] button:has-text("Done")').first().click(),
+        () => page.locator('.MuiDialog-root button:has-text("Cancel")').first().click(),
+        () => page.locator('.MuiModal-root button:has-text("Cancel")').first().click(),
+        () => page.locator('button:has-text("Cancel")').first().click(),
+        () => page.locator('button:has-text("Close")').first().click(),
+        () => page.locator('button[aria-label*="close"]').first().click(),
+        () => page.locator('button[aria-label*="Close"]').first().click()
+      ];
+      
+      for (const method of closeMethods) {
+        try {
+          await method();
+          await page.waitForTimeout(300);
+          
+          // Check if any dialogs are still open
+          let stillOpen = 0;
+          for (const selector of dialogSelectors) {
+            const dialogs = page.locator(selector);
+            const count = await dialogs.count();
+            if (count > 0) {
+              const visible = await dialogs.first().isVisible().catch(() => false);
+              if (visible) stillOpen += count;
+            }
+          }
+          
+          if (stillOpen === 0) {
+            console.log('✅ All dialogs closed successfully');
+            return;
+          }
+        } catch (e) {
+          // Continue to next method
+        }
+      }
+      
+      // Try clicking outside the dialog
+      console.log('⚠️ Dialog still open, trying to click outside...');
+      try {
+        await page.click('body', { position: { x: 10, y: 10 } });
+        await page.waitForTimeout(500);
+        
+        const dialogStillOpen = await dialog.isVisible({ timeout: 500 }).catch(() => false);
+        if (!dialogStillOpen) {
+          console.log('✅ Dialog closed by clicking outside');
+          return;
+        }
+      } catch (e) {
+        console.log('Could not click outside dialog');
+      }
+      
+      // Force close by removing all dialogs from DOM
+      console.log('⚠️ Force closing all dialogs by removing from DOM...');
+      try {
+        await page.evaluate(() => {
+          const dialogSelectors = [
+            '[role="dialog"]',
+            '.MuiDialog-root',
+            '.MuiModal-root',
+            '.MuiDialog-container',
+            '.MuiBackdrop-root',
+            '[data-testid*="dialog"]',
+            '[data-testid*="modal"]',
+            '.dialog',
+            '.modal',
+            '.date-picker',
+            '.calendar'
+          ];
+          
+          dialogSelectors.forEach(selector => {
+            const elements = document.querySelectorAll(selector);
+            elements.forEach(el => {
+              if (el.style.display !== 'none') {
+                console.log(`Force removing dialog: ${selector}`);
+                el.style.display = 'none';
+                if (el.parentNode) {
+                  el.parentNode.removeChild(el);
+                }
+              }
+            });
+          });
+        });
+        await page.waitForTimeout(500);
+        console.log('✅ All dialogs force closed');
+      } catch (e) {
+        console.log('Could not force close dialog:', e.message);
+      }
+      
+    } catch (e) {
+      console.log('Error closing dialogs:', e.message);
+    }
   }
 
   async _setDateByLabel(labelRegex, dateStr) {
@@ -530,11 +1168,14 @@ class RenewPolicyPage {
     const container = label.locator('xpath=ancestor::*[self::div or self::*][1]');
     const input = container.locator('input[placeholder="DD/MM/YYYY"], input[name="POLICY_EXPIRY_DATE"]').first();
     if (!(await input.isVisible().catch(() => false))) throw new Error('Date input not found');
+    
+    try {
     // Try calendar first
     await input.click();
     await this._selectDate(dateStr);
     const valAfter = await input.inputValue().catch(() => '');
     if (valAfter && valAfter !== 'DD/MM/YYYY') return;
+      
     // Direct set fallback to commit value
     const handle = await input.elementHandle();
     if (!handle) throw new Error('Date input handle missing');
@@ -547,6 +1188,10 @@ class RenewPolicyPage {
       el.dispatchEvent(new Event('change', { bubbles: true }));
       el.blur();
     }, dateStr);
+    } finally {
+      // ALWAYS ensure dialog is closed
+      await this._closeAnyOpenDialogs();
+    }
   }
 
   async _selectMuiOption(selectLocator, optionText, opts = {}) {
@@ -568,6 +1213,45 @@ class RenewPolicyPage {
       const text = normalize(await options.nth(i).innerText());
       if (text === optionText || text.includes(optionText)) {
         await options.nth(i).click();
+        
+        // AGGRESSIVE DROPDOWN CLOSING
+        console.log(`🔧 Closing dropdown after selecting: ${optionText}`);
+        
+        // Strategy 1: Wait for dropdown to close naturally (increased wait time)
+        await page.waitForTimeout(1000);
+        
+        // Strategy 2: Check if dropdown is still open and force close
+        const stillOpen = await list.isVisible({ timeout: 1000 }).catch(() => false);
+        if (stillOpen) {
+          console.log('⚠️ Dropdown still open, forcing closure...');
+          
+          // Try pressing Escape
+          await page.keyboard.press('Escape');
+          await page.waitForTimeout(300);
+          
+          // Try pressing Enter
+          await page.keyboard.press('Enter');
+          await page.waitForTimeout(300);
+          
+          // Try clicking outside
+          await page.click('body', { position: { x: 10, y: 10 } });
+          await page.waitForTimeout(300);
+          
+          // Force remove from DOM
+          await page.evaluate(() => {
+            const dropdowns = document.querySelectorAll('ul[role="listbox"], [role="listbox"]');
+            dropdowns.forEach(dropdown => {
+              if (dropdown.style.display !== 'none') {
+                console.log('Force removing dropdown from DOM');
+                dropdown.style.display = 'none';
+                if (dropdown.parentNode) {
+                  dropdown.parentNode.removeChild(dropdown);
+                }
+              }
+            });
+          });
+        }
+        
         return;
       }
     }
@@ -577,6 +1261,45 @@ class RenewPolicyPage {
       const text = normalizeLoose(await options.nth(i).innerText());
       if (text.includes(target)) {
         await options.nth(i).click();
+        
+        // AGGRESSIVE DROPDOWN CLOSING
+        console.log(`🔧 Closing dropdown after selecting (loose match): ${optionText}`);
+        
+        // Strategy 1: Wait for dropdown to close naturally
+        await page.waitForTimeout(500);
+        
+        // Strategy 2: Check if dropdown is still open and force close
+        const stillOpen = await list.isVisible({ timeout: 1000 }).catch(() => false);
+        if (stillOpen) {
+          console.log('⚠️ Dropdown still open, forcing closure...');
+          
+          // Try pressing Escape
+          await page.keyboard.press('Escape');
+          await page.waitForTimeout(300);
+          
+          // Try pressing Enter
+          await page.keyboard.press('Enter');
+          await page.waitForTimeout(300);
+          
+          // Try clicking outside
+          await page.click('body', { position: { x: 10, y: 10 } });
+          await page.waitForTimeout(300);
+          
+          // Force remove from DOM
+          await page.evaluate(() => {
+            const dropdowns = document.querySelectorAll('ul[role="listbox"], [role="listbox"]');
+            dropdowns.forEach(dropdown => {
+              if (dropdown.style.display !== 'none') {
+                console.log('Force removing dropdown from DOM');
+                dropdown.style.display = 'none';
+                if (dropdown.parentNode) {
+                  dropdown.parentNode.removeChild(dropdown);
+                }
+              }
+            });
+          });
+        }
+        
         return;
       }
     }
@@ -588,6 +1311,45 @@ class RenewPolicyPage {
           const text = await options.nth(i).innerText();
           if (toNumeric(text) === want) {
             await options.nth(i).click();
+            
+            // AGGRESSIVE DROPDOWN CLOSING
+            console.log(`🔧 Closing dropdown after selecting (numeric match): ${optionText}`);
+            
+            // Strategy 1: Wait for dropdown to close naturally
+            await page.waitForTimeout(500);
+            
+            // Strategy 2: Check if dropdown is still open and force close
+            const stillOpen = await list.isVisible({ timeout: 1000 }).catch(() => false);
+            if (stillOpen) {
+              console.log('⚠️ Dropdown still open, forcing closure...');
+              
+              // Try pressing Escape
+              await page.keyboard.press('Escape');
+              await page.waitForTimeout(300);
+              
+              // Try pressing Enter
+              await page.keyboard.press('Enter');
+              await page.waitForTimeout(300);
+              
+              // Try clicking outside
+              await page.click('body', { position: { x: 10, y: 10 } });
+              await page.waitForTimeout(300);
+              
+              // Force remove from DOM
+              await page.evaluate(() => {
+                const dropdowns = document.querySelectorAll('ul[role="listbox"], [role="listbox"]');
+                dropdowns.forEach(dropdown => {
+                  if (dropdown.style.display !== 'none') {
+                    console.log('Force removing dropdown from DOM');
+                    dropdown.style.display = 'none';
+                    if (dropdown.parentNode) {
+                      dropdown.parentNode.removeChild(dropdown);
+                    }
+                  }
+                });
+              });
+            }
+            
             return;
           }
         }

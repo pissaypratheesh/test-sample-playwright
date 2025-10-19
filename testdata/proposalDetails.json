@@ -4,7 +4,7 @@
     "firstName": "JOHN",
     "middleName": "WILLIAM",
     "lastName": "DOE",
-    "dateOfBirth": "01/01/1995",
+    "dateOfBirth": "01/01/1992",
     "email": "john.doe@example.com",
     "mobileNo": "9876543210",
     "alternateMobileNo": "9876543211",
@@ -31,6 +31,7 @@
     "chasisNo": "MAT123456789012345",
     "engineNo": "ENG123456789012345",
     "invoiceDate": "15/01/2020",
+    "registrationDate": "15/01/2020",
     "registrationNo": "DL09RAA5445",
     "previousPolicyNo": "POL123456789",
     "ncbDocumentSubmitted": true
@@ -41,6 +42,10 @@
     "insuranceCompany": "TATA AIG General Insurance",
     "officeAddress": "Mumbai Office"
   },
+  "odPolicyExpiryDate": "01/01/1992",
+  "tpPolicyExpiryDate": "01/01/1992",
+  "invoiceDate": "01/01/1992",
+  "registrationDate": "01/01/1992",
   "nomineeDetails": {
     "nomineeName": "Jane Doe",
     "nomineeAge": "35",
