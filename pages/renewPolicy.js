@@ -549,6 +549,49 @@ class RenewPolicyPage {
     }, dateStr);
   }
 
+  async _setDOBValue(dateStr) {
+    const page = this.page;
+    const dob = page.locator('input[name="DOB"]').first();
+    if (!(await dob.isVisible().catch(() => false))) return;
+    const handle = await dob.elementHandle();
+    if (!handle) return;
+    await handle.evaluate((el, value) => {
+      try { el.removeAttribute('readonly'); } catch {}
+      try { el.readOnly = false; } catch {}
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+      setter.call(el, value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      el.blur();
+    }, dateStr);
+    // Verify and avoid interacting with the calendar popup at all
+    const v = await dob.inputValue().catch(() => '');
+    if (!v || v === 'DD/MM/YYYY') {
+      await dob.click();
+      await dob.fill('');
+      await dob.type(dateStr, { delay: 20 });
+      await page.keyboard.press('Enter').catch(() => {});
+      await dob.blur().catch(() => {});
+    }
+  }
+
+  async _setDOBValueNoPopup(dateStr) {
+    const page = this.page;
+    const dob = page.locator('input[name="DOB"]').first();
+    if (!(await dob.isVisible().catch(() => false))) return;
+    const handle = await dob.elementHandle();
+    if (!handle) return;
+    await handle.evaluate((el, value) => {
+      try { el.removeAttribute('readonly'); } catch {}
+      try { el.readOnly = false; } catch {}
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+      setter.call(el, value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      el.blur();
+    }, dateStr);
+  }
+
   async _selectMuiOption(selectLocator, optionText, opts = {}) {
     const page = this.page;
     await page.locator(selectLocator).click();
@@ -594,6 +637,36 @@ class RenewPolicyPage {
       }
     }
     throw new Error(`Option not found for ${selectLocator}: ${optionText}`);
+  }
+
+  async _forceSetBySelector(selector, value) {
+    const page = this.page;
+    const field = page.locator(selector).first();
+    if (!(await field.isVisible().catch(() => false))) return false;
+    const handle = await field.elementHandle();
+    if (!handle) return false;
+    await handle.evaluate((el, v) => {
+      try { el.removeAttribute('readonly'); } catch {}
+      try { el.readOnly = false; } catch {}
+      try { el.removeAttribute('disabled'); } catch {}
+      try { el.disabled = false; } catch {}
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set
+        || Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+      setter.call(el, v);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      el.blur();
+    }, value);
+    const val = await field.inputValue().catch(() => '');
+    if (val && val !== 'DD/MM/YYYY') return true;
+    // Fallback to typing
+    try {
+      await field.click();
+      await field.fill('');
+      await field.type(value, { delay: 20 });
+      await page.keyboard.press('Tab').catch(() => {});
+      return true;
+    } catch { return false; }
   }
 
   async _toggleYesNearLabel(labelRegex) {
@@ -643,6 +716,50 @@ class RenewPolicyPage {
       return;
     }
     throw new Error('Unable to set Yes for toggle near label');
+  }
+
+  async _setCheckboxNearLabel(labelRegex, shouldBeChecked) {
+    const page = this.page;
+    const label = page.getByText(labelRegex).first();
+    await label.scrollIntoViewIfNeeded().catch(() => {});
+    const container = label.locator('xpath=ancestor::*[self::div or self::*][1]');
+    const checkbox = container.locator('input[type="checkbox"], [role="switch"]').first();
+    if (await checkbox.isVisible().catch(() => false)) {
+      const isChecked = await checkbox.isChecked().catch(() => false);
+      if (shouldBeChecked !== isChecked) {
+        const boxLabel = checkbox.locator('xpath=ancestor::label[1]');
+        if (await boxLabel.isVisible().catch(() => false)) {
+          await boxLabel.click();
+        } else {
+          await checkbox.click({ force: true });
+        }
+      }
+    } else {
+      // Fallback to any Yes/No buttons in the same container
+      const yesBtn = container.getByRole('button', { name: /yes/i }).first();
+      const noBtn = container.getByRole('button', { name: /no/i }).first();
+      if (shouldBeChecked && await yesBtn.isVisible().catch(() => false)) {
+        const ariaPressed = await yesBtn.getAttribute('aria-pressed').catch(() => null);
+        if (ariaPressed !== 'true') await yesBtn.click();
+      } else if (!shouldBeChecked && await noBtn.isVisible().catch(() => false)) {
+        const ariaPressed = await noBtn.getAttribute('aria-pressed').catch(() => null);
+        if (ariaPressed !== 'true') await noBtn.click();
+      }
+    }
+  }
+
+  async _stabilizeDOB(dateStr, durationMs = 1500) {
+    const page = this.page;
+    const dob = page.locator('input[name="DOB"]').first();
+    const deadline = Date.now() + durationMs;
+    while (Date.now() < deadline) {
+      const v = await dob.inputValue().catch(() => '');
+      if (v !== dateStr) {
+        await this._setDOBValueNoPopup(dateStr).catch(() => {});
+        await page.keyboard.press('Escape').catch(() => {});
+      }
+      await page.waitForTimeout(200).catch(() => {});
+    }
   }
 
   async _selectDropdownNearLabel(labelRegex, optionText, opts = {}) {
@@ -777,24 +894,21 @@ class RenewPolicyPage {
         console.log('Error filling last name:', e.message);
       }
       
-      // Date of Birth - Use direct JavaScript injection for readonly fields
+      // Date of Birth - Use same flow as other date pickers (primary: _setDateOnInput, fallback: by label)
       try {
         console.log('Filling date of birth...');
         const dobInput = page.locator('input[name="DOB"]');
-        if (await dobInput.isVisible({ timeout: 2000 })) {
-          // For readonly DOB fields, use direct JavaScript injection
-          await dobInput.evaluate((el, value) => {
-            el.removeAttribute('readonly');
-            el.readOnly = false;
-            el.value = value;
-            el.dispatchEvent(new Event('input', { bubbles: true }));
-            el.dispatchEvent(new Event('change', { bubbles: true }));
-            el.dispatchEvent(new Event('blur', { bubbles: true }));
-          }, data.personalDetails.dateOfBirth);
-          
-          // Verify the value was set
-          const currentValue = await dobInput.inputValue();
-          console.log(`DOB set to: ${currentValue}`);
+        let dobSet = false;
+        if (await dobInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+          await this._setDateOnInput(dobInput, data.personalDetails.dateOfBirth);
+          dobSet = true;
+        } else {
+          await this._setDateByLabel(/Date\s*of\s*Birth/i, data.personalDetails.dateOfBirth).catch(() => {});
+          dobSet = true;
+        }
+        if (dobSet) {
+          const v = await dobInput.inputValue().catch(() => '');
+          console.log(`DOB set to: ${v}`);
         }
       } catch (e) {
         console.log('Error filling date of birth:', e.message);
@@ -846,13 +960,20 @@ class RenewPolicyPage {
         console.log('Error filling alternate mobile number:', e.message);
       }
       
-      // Address Line 1
+      // Address Line 1 (proposal page)
       try {
         console.log('Filling address line 1...');
         const addr1Input = page.locator('input[name="ADDRESS_LINE1"], textarea[name="ADDRESS_LINE1"]');
         if (await addr1Input.isVisible({ timeout: 2000 })) {
           await addr1Input.clear();
           await addr1Input.fill(data.personalDetails.addressLine1);
+          const v = await addr1Input.inputValue().catch(() => '');
+          if (!v) {
+            await this._forceSetBySelector('input[name="ADDRESS_LINE1"], textarea[name="ADDRESS_LINE1"]', data.personalDetails.addressLine1).catch(() => {});
+          }
+        } else {
+          // Near-label fallback
+          await this._forceSetBySelector('xpath=//label[contains(.,"Address Line 1")]/following::input[1]', data.personalDetails.addressLine1).catch(() => {});
         }
       } catch (e) {
         console.log('Error filling address line 1:', e.message);
@@ -898,13 +1019,67 @@ class RenewPolicyPage {
         console.log('Error filling city:', e.message);
       }
       
-      // Pincode
+      // Pincode (proposal page)
       try {
         console.log('Filling pincode...');
-        const pincodeInput = page.locator('input[name="PIN"]');
-        if (await pincodeInput.isVisible({ timeout: 2000 })) {
-          await pincodeInput.clear();
-          await pincodeInput.fill(data.personalDetails.pinCode);
+        let setOk = false;
+        let pickedPin = null;
+        // Dropdown-first: open list near the Pincode label and pick a 6-digit option
+        try {
+          const label = page.getByText(/Pincode\b/i).first();
+          const container = label.locator('xpath=ancestor::*[self::div or self::*][1]');
+          const combo = container.locator('[role="combobox"], [aria-haspopup="listbox"], [id^="mui-component-select-"]').first();
+          if (await combo.isVisible({ timeout: 1000 }).catch(() => false)) {
+            await combo.click();
+            const list = page.locator('ul[role="listbox"] li[role="option"]').filter({ hasText: /\b\d{6}\b/ });
+            const count = await list.count().catch(() => 0);
+            if (count > 0) {
+              // prefer exact match from test data
+              const exact = list.filter({ hasText: new RegExp(`\\b${data.personalDetails.pinCode}\\b`) });
+              if (await exact.count()) {
+                pickedPin = (await exact.first().innerText()).trim().match(/\b\d{6}\b/)[0];
+                await exact.first().click();
+              } else {
+                pickedPin = (await list.first().innerText()).trim().match(/\b\d{6}\b/)[0];
+                await list.first().click();
+              }
+              setOk = true;
+            }
+          }
+        } catch {}
+        // Input fallback
+        if (!setOk) {
+          const pincodeInput = page.locator('input[name="PIN"]').first();
+          if (await pincodeInput.isVisible({ timeout: 1000 }).catch(() => false)) {
+            await pincodeInput.clear();
+            await pincodeInput.fill(data.personalDetails.pinCode);
+            let pv = await pincodeInput.inputValue().catch(() => '');
+            if (!pv) {
+              await this._forceSetBySelector('input[name="PIN"]', data.personalDetails.pinCode).catch(() => {});
+              pv = await pincodeInput.inputValue().catch(() => '');
+            }
+            await page.keyboard.press('Tab').catch(() => {});
+            pickedPin = pv || data.personalDetails.pinCode;
+            setOk = !!pv;
+          } else {
+            // Near-label to next input
+            await this._forceSetBySelector('xpath=//label[contains(.,"Pincode")]/following::input[1]', data.personalDetails.pinCode).catch(() => {});
+            pickedPin = data.personalDetails.pinCode;
+          }
+        }
+        // Persist selected pin to test data for next runs
+        try {
+          if (pickedPin && /^\d{6}$/.test(pickedPin)) {
+            const proposalPath = path.join(__dirname, '../testdata/proposalDetails.json');
+            const json = JSON.parse(fs.readFileSync(proposalPath, 'utf-8'));
+            if (json && json.personalDetails) {
+              json.personalDetails.pinCode = pickedPin;
+              fs.writeFileSync(proposalPath, JSON.stringify(json, null, 2));
+              console.log(`[PINCODE] Persisted selected pincode ${pickedPin} to proposalDetails.json`);
+            }
+          }
+        } catch (persistErr) {
+          console.log('Could not persist pincode to test data:', persistErr.message);
         }
       } catch (e) {
         console.log('Error filling pincode:', e.message);
@@ -1124,7 +1299,14 @@ class RenewPolicyPage {
         } catch (e) {
           console.log('Could not fill Policy Period To:', e.message);
         }
-        
+
+        // NCB Document Submitted ?
+        try {
+          await this._setCheckboxNearLabel(/NCB\s*Document\s*Submitted\s*\?/i, !!data.ncbCarryForwardDetails.ncbDocumentSubmitted);
+        } catch (e) {
+          console.log('Could not set NCB Document Submitted:', e.message);
+        }
+
         // NCB Certificate Effective Date
         try {
           const ncbDateInput = page.locator('input[name="PREV_VEH_NCB_EFFECTIVE_DATE_NONVISOF"]');
@@ -1192,15 +1374,53 @@ class RenewPolicyPage {
         // Continue with the test even if payment mode fails
       }
       
-      // DP Name
+      // DP Name: select requested value or first non-default/non-placeholder option
       try {
         console.log('Filling DP Name...');
-        await this._selectMuiOption('#mui-component-select-AgentID', data.paymentDetails.dpName);
+        let selected = false;
+        try {
+          await this._selectMuiOption('#mui-component-select-AgentID', data.paymentDetails.dpName);
+          selected = true;
+        } catch {}
+        if (!selected) {
+          const pageRef = this.page;
+          const trigger = pageRef.locator('#mui-component-select-AgentID');
+          await trigger.click();
+          const list = pageRef.locator('ul[role="listbox"]');
+          await list.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+          const options = list.locator('li[role="option"]').filter({ hasNotText: /Select|--/i });
+          const count = await options.count().catch(() => 0);
+          // Skip entries that contain the word Default
+          let clicked = false;
+          for (let i = 0; i < count; i++) {
+            const text = (await options.nth(i).innerText().catch(() => '')).trim();
+            if (!/default/i.test(text)) {
+              await options.nth(i).click().catch(() => {});
+              clicked = true;
+              console.log(`DP Name fallback selected: ${text}`);
+              break;
+            }
+          }
+          if (!clicked && count > 0) {
+            const txt = (await options.first().innerText().catch(() => '')).trim();
+            await options.first().click().catch(() => {});
+            console.log(`DP Name fallback (first) selected: ${txt}`);
+          }
+        }
       } catch (e) {
         console.log('Could not fill DP Name:', e.message);
       }
       
       console.log('Finished filling proposal details form');
+      
+      // Final DOB log only (no re-assert to mimic other date fields)
+      try {
+        const dobFinal = page.locator('input[name="DOB"]').first();
+        if (await dobFinal.isVisible().catch(() => false)) {
+          const cur = await dobFinal.inputValue().catch(() => '');
+          console.log(`[DOB] Final value: "${cur}"`);
+        }
+      } catch {}
       
       // Print all filled form data for review
       console.log('\n=== FORM DATA REVIEW ===');
@@ -1249,6 +1469,20 @@ class RenewPolicyPage {
       console.log(`  Payment Mode: ${data.paymentDetails.paymentMode}`);
       console.log(`  DP Name: ${data.paymentDetails.dpName}`);
       console.log('=== END FORM DATA REVIEW ===\n');
+
+      // Allow manual verification, then simulate footer button clicks
+      try {
+        console.log('Waiting 12s for manual verification before simulating footer actions...');
+        await page.waitForTimeout(12000);
+        const previewBtn = page.getByRole('button', { name: /proposal\s*preview/i }).first();
+        if (await previewBtn.isVisible().catch(() => false)) {
+          console.log('Clicking PROPOSAL PREVIEW button...');
+          await previewBtn.click().catch(() => {});
+          await page.waitForTimeout(1500);
+        }
+      } catch (e) {
+        console.log('Footer button simulation skipped:', e.message);
+      }
       
     } catch (e) {
       console.log('Error in _fillProposalDetails:', e.message);

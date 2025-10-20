@@ -4,7 +4,7 @@
     "firstName": "JOHN",
     "middleName": "WILLIAM",
     "lastName": "DOE",
-    "dateOfBirth": "01/01/1995",
+    "dateOfBirth": "01/01/2002",
     "email": "john.doe@example.com",
     "mobileNo": "9876543210",
     "alternateMobileNo": "9876543211",
@@ -49,7 +49,7 @@
   },
   "paymentDetails": {
     "paymentMode": "Credit Card",
-    "dpName": "Default DP"
+    "dpName": "Ashutosh DP"
   },
   "actions": {
     "clickProposalReview": true,
