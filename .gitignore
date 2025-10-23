@@ -2,10 +2,12 @@
 node_modules/
 node_modules.zip
 
+others/
 # Playwright
 playwright-report/
 playwright/.cache/
-
+.playwright-mcp/
+*.png
 # Allure
 allure-results/
 allure-report/

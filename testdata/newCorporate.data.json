@@ -1,0 +1,94 @@
+{
+  "policyDetails": {
+    "policyType": "NEW",
+    "oem": "FORD",
+    "vehicleClass": "COMMERCIAL",
+    "vehicleCover": "1 OD + 3 TP",
+    "offlineQuote": "NO",
+    "policyStartDate": "21/10/2025",
+    "proposerType": "CORPORATE"
+  },
+  "companyDetails": {
+    "companySalutation": "M/S",
+    "companyName": "Binary",
+    "emailId": "binary@bi.com",
+    "mobileNo": "9807864567",
+    "alternateMobileNo": "9999999999"
+  },
+  "vehicleDetails": {
+    "vin": "1HGBH41JXMN109186",
+    "engineNo": "ENG123456789012345",
+    "builtType": "Fully Built",
+    "make": "Ford",
+    "model": "ECOSPORT",
+    "variant": "1.0 ECOSPORT PTL TIT",
+    "fuelType": "PETROL",
+    "seatingCapacity": "5",
+    "grossVehicleWeight": "0",
+    "cubicCapacity": "999",
+    "exShowroomPrice": "1000000",
+    "yearOfManufacture": "2024",
+    "registrationCity": "DELHI CENTRAL DL 06 (DL)",
+    "customerResidenceState": "DELHI",
+    "invoiceDate": "21/10/2025",
+    "registrationDate": "21/10/2025",
+    "gstin": "07ABCDE1234F1Z5",
+    "testVehicle": "NO",
+    "bhRegistration": "NO",
+    "registrationNo": {
+      "stateCode": "DL02T123",
+      "rtoCode": "DL",
+      "number": "7878"
+    }
+  },
+  "additionalDiscounts": {
+    "ncbCarryForward": "YES",
+    "entitledNcbPercent": "20",
+    "antiTheft": "YES"
+  },
+  "proposerDetails": {
+    "salutation": "MS.",
+    "firstName": "JOHN",
+    "dateOfIncorporation": "21/10/2025",
+    "state": "DELHI",
+    "city": "Delhi",
+    "pincode": "110002",
+    "panNo": "UIUIP9090L"
+  },
+  "aaMembershipDetails": {
+    "associationName": "Automobile Association of Eastern India",
+    "membershipNo": "56786788TYUTIU67",
+    "invalidityMonth": "March",
+    "year": "2027"
+  },
+  "ncbCarryForwardDetails": {
+    "make": "ford",
+    "model": "hybrid",
+    "variant": "Tata",
+    "yearOfManufacture": "2024",
+    "chassisNo": "TYUI6788TYUI67899",
+    "engineNo": "678990TYYUII67899YUIIO",
+    "invoiceDate": "9/10/2025",
+    "registrationNo": "DL02TYU7878",
+    "previousPolicyNo": "TYI6789TYUI678989YUII789",
+    "ncbDocumentSubmitted": true,
+    "policyPeriodFrom": "11/10/2025",
+    "policyPeriodTo": "10/10/2026",
+    "insuranceCompany": "Gujarat Insurance Fund",
+    "officeAddress": "orchid office line"
+  },
+  "nomineeDetails": {
+    "nomineeName": "Johnny",
+    "nomineeAge": "30",
+    "nomineeRelation": "Daughter",
+    "nomineeGender": "Female"
+  },
+  "paymentDetails": {
+    "paymentMode": "Customer's Cheque",
+    "dpName": "Ashutosh DP"
+  },
+  "generatedData": {
+    "vin": "1HGBH41JXMN109186",
+    "engineNo": "ENG123456789012345"
+  }
+}

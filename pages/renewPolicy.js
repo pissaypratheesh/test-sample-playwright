@@ -1,6 +1,7 @@
 const { expect } = require('@playwright/test');
 const fs = require('fs');
 const path = require('path');
+const { setDobMUIv5 } = require('./utils/dateSetters');
 
 class RenewPolicyPage {
   constructor(page) {
@@ -900,7 +901,8 @@ class RenewPolicyPage {
         const dobInput = page.locator('input[name="DOB"]');
         let dobSet = false;
         if (await dobInput.isVisible({ timeout: 2000 }).catch(() => false)) {
-          await this._setDateOnInput(dobInput, data.personalDetails.dateOfBirth);
+          // Use external util for DOB to avoid disturbing shared flow
+          await setDobMUIv5(page, data.personalDetails.dateOfBirth);
           dobSet = true;
         } else {
           await this._setDateByLabel(/Date\s*of\s*Birth/i, data.personalDetails.dateOfBirth).catch(() => {});
