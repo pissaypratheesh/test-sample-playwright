@@ -115,15 +115,46 @@ test.describe('Policy Renewal Flow - Reusable Tests', () => {
     }
   });
 
+  test('Policy Form Completion - End-to-End Test', async ({ page }) => {
+    const renewPolicyPage = new RenewPolicyPage(page);
+
+    // Step 1: Navigate and login
+    await renewPolicyPage.navigation.navigateToLoginPage();
+    await renewPolicyPage.navigation.login(creds);
+
+    // Step 2: Navigate to policy issuance
+    await renewPolicyPage.navigation.navigateToPolicyIssuance();
+
+    // Step 3: Navigate to renewal flow
+    await renewPolicyPage.navigation.navigateToRenewalFlow();
+
+    // Step 4: Fill policy details (including dates)
+    await renewPolicyPage.fillPolicyDetails(testdata);
+
+    // Step 5: Fill customer details
+    await renewPolicyPage.fillCustomerDetails(testdata);
+
+    // Step 6: Fill vehicle details (including dates)
+    await renewPolicyPage.fillVehicleDetails(testdata);
+
+    // Step 7: Get quotes (this completes the policy form)
+    await renewPolicyPage.getQuotes();
+
+    // Take final screenshot
+    await renewPolicyPage.takeFormScreenshot('policy-form-completed.png');
+
+    console.log('✅ Policy form completion test passed successfully');
+  });
+
   test('Proposal Details Flow - Extended Test', async ({ page }) => {
     const renewPolicyPage = new RenewPolicyPage(page);
-    
+
     // Run the complete renewal flow including proposal details
     await renewPolicyPage.runRenewalFlow(testdata, creds, proposalDetails);
-    
+
     // Wait for manual review
     await page.waitForTimeout(15000);
-    
+
     console.log('✅ Complete proposal details flow completed successfully');
   });
 });

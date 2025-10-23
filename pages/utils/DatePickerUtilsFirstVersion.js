@@ -11,156 +11,62 @@ class DatePickerUtils extends BasePage {
   }
 
   /**
-   * Set date on Material UI date picker - Based on original renewPolicy.js approach
+   * Set date on Material UI date picker - Simplified approach based on PolicyIssuancePage.js
    * @param {Locator} inputLocator - Date input locator
    * @param {string} dateStr - Date string in DD/MM/YYYY format
    * @param {Object} options - Additional options
    */
   async setDateOnMaterialUIPicker(inputLocator, dateStr, options = {}) {
-    console.log(`[DatePickerUtils] Setting date: ${dateStr} using original renewPolicy.js approach`);
-    
-    const input = inputLocator.first();
-    if (!(await input.isVisible().catch(() => false))) {
-      throw new Error('Date input not found');
+    const {
+      retries = 3,
+      timeout = 10000,
+      takeScreenshot = false
+    } = options;
+
+    console.log(`[DatePickerUtils] Starting simplified date picker for date: ${dateStr}`);
+
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        console.log(`[DatePickerUtils] Attempt ${attempt + 1}/${retries}: Setting date ${dateStr}`);
+        
+        if (takeScreenshot) {
+          await this.page.screenshot({ path: `.playwright-mcp/date-picker-attempt-${attempt + 1}.png` });
+        }
+
+        // Strategy 1: Simple click approach (like PolicyIssuancePage.js)
+        const simpleSuccess = await this._trySimpleDateSelection(inputLocator, dateStr);
+        if (simpleSuccess) {
+          console.log('✅ [DatePickerUtils] Date set successfully using simple approach');
+          return true;
+        }
+
+        // Strategy 2: Direct value setting (fallback)
+        console.log(`[DatePickerUtils] Attempt ${attempt + 1}: Trying direct value setting...`);
+        const directSuccess = await this._tryDirectValueSetting(inputLocator, dateStr);
+        if (directSuccess) {
+          console.log('✅ [DatePickerUtils] Date set successfully using direct value setting');
+          return true;
+        }
+
+        console.log(`❌ [DatePickerUtils] Attempt ${attempt + 1} failed, retrying...`);
+        await this.page.waitForTimeout(1000);
+
+      } catch (error) {
+        console.log(`❌ [DatePickerUtils] Attempt ${attempt + 1} error:`, error.message);
+        if (attempt === retries - 1) throw error;
+        await this.page.waitForTimeout(1000);
+      }
     }
 
-    const page = this.page;
-    
-    // 1) Try direct set first (handles masked/readonly inputs) - from original renewPolicy.js
-    const handle = await input.elementHandle();
-    if (!handle) throw new Error('Date input handle missing');
-    
-    await handle.evaluate((el, value) => {
-      try { el.removeAttribute('readonly'); } catch {}
-      try { el.readOnly = false; } catch {}
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-      setter.call(el, value);
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-      el.dispatchEvent(new Event('change', { bubbles: true }));
-      el.blur();
-    }, dateStr);
-    
-    let val = await input.inputValue().catch(() => '');
-    if (val === dateStr) {
-      // Value is already set correctly
-      await page.keyboard.press('Escape').catch(() => {});
-      await input.blur().catch(() => {});
-      console.log(`✅ [DatePickerUtils] Date set successfully using direct value setting: ${val}`);
-      return true;
-    }
-    
-    console.log(`[DatePickerUtils] Direct value setting failed. Expected: ${dateStr}, Got: ${val}`);
-    
-    // 2) Fallback to calendar selection
-    console.log(`[DatePickerUtils] Trying calendar selection fallback...`);
-    await input.click();
-    try {
-      await this._selectDate(dateStr);
-      await page.keyboard.press('Escape').catch(() => {});
-    } catch (error) {
-      console.log(`[DatePickerUtils] Calendar selection failed: ${error.message}`);
-    }
-    
-    val = await input.inputValue().catch(() => '');
-    if (val && val !== 'DD/MM/YYYY') {
-      console.log(`✅ [DatePickerUtils] Date set successfully using calendar selection: ${val}`);
-      return true;
-    }
-    
-    // 3) Final attempt: type into input (some masks accept typing)
-    console.log(`[DatePickerUtils] Trying typing fallback...`);
-    await input.click();
-    await input.fill('');
-    await input.type(dateStr, { delay: 20 });
-    await page.keyboard.press('Enter').catch(() => {});
-    await page.keyboard.press('Escape').catch(() => {});
-    await input.blur().catch(() => {});
-    
-    val = await input.inputValue().catch(() => '');
-    if (val && val !== 'DD/MM/YYYY') {
-      console.log(`✅ [DatePickerUtils] Date set successfully using typing: ${val}`);
-      return true;
-    }
-    
-    console.log(`❌ [DatePickerUtils] All methods failed. Final value: ${val}`);
-    throw new Error(`Failed to set date ${dateStr}. Got: ${val}`);
+    throw new Error(`Failed to set date ${dateStr} after ${retries} attempts`);
   }
 
   /**
-   * Select date from calendar dialog (from original renewPolicy.js)
-   * @param {string} dateStr - Date string in DD/MM/YYYY format
+   * Try simple date selection approach (based on PolicyIssuancePage.js)
+   * @param {Locator} inputLocator - Input locator
+   * @param {string} dateStr - Date string
+   * @returns {boolean} - Success status
    */
-  async _selectDate(dateStr) {
-    const page = this.page;
-    const [dStr, mStr, yStr] = dateStr.split('/');
-    const targetDay = dStr.replace(/^0/, '');
-    const targetMonth = parseInt(mStr, 10); // 1-12
-    const targetYear = parseInt(yStr, 10);
-
-    const monthNames = [
-      'January','February','March','April','May','June',
-      'July','August','September','October','November','December'
-    ];
-
-    // Ensure a dialog is open
-    const dialog = page.locator('[role="dialog"]').first();
-    await dialog.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
-
-    // Helper to read current header month/year
-    const readHeader = async () => {
-      // Try a direct regex on header label text
-      const header = dialog.locator('text=/^(January|February|March|April|May|June|July|August|September|October|November|December)\\s+\\d{4}$/').first();
-      if (await header.isVisible().catch(() => false)) {
-        const t = (await header.innerText()).trim();
-        const [mName, y] = t.split(/\s+/);
-        return { monthIndex: monthNames.indexOf(mName) + 1, year: parseInt(y, 10) };
-      }
-      // Fallback: scan any text in dialog matching Month YYYY
-      const all = await dialog.allInnerTexts().catch(() => []);
-      for (const line of all) {
-        const m = line.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\b/);
-        if (m) {
-          return { monthIndex: monthNames.indexOf(m[1]) + 1, year: parseInt(m[2], 10) };
-        }
-      }
-      return null;
-    };
-
-    const clickNext = async () => {
-      const btn = dialog.locator('[aria-label="Next month"], button[title="Next month"], [data-testid*="NextArrow"], button:has-text("›"), button:has-text(">")').first();
-      if (await btn.isVisible().catch(() => false)) { await btn.click(); return true; }
-      // Generic: the second arrow icon button in header
-      const generic = dialog.locator('button').filter({ hasText: /\b|/ }).nth(1);
-      if (await generic.isVisible().catch(() => false)) { await generic.click(); return true; }
-      return false;
-    };
-    
-    const clickPrev = async () => {
-      const btn = dialog.locator('[aria-label="Previous month"], button[title="Previous month"], [data-testid*="PreviousArrow"], button:has-text("‹"), button:has-text("<")').first();
-      if (await btn.isVisible().catch(() => false)) { await btn.click(); return true; }
-      const generic = dialog.locator('button').first();
-      if (await generic.isVisible().catch(() => false)) { await generic.click(); return true; }
-      return false;
-    };
-
-    // Navigate to target month/year with a safe iteration cap
-    for (let i = 0; i < 30; i++) {
-      const cur = await readHeader();
-      if (!cur) break;
-      if (cur.year === targetYear && cur.monthIndex === targetMonth) break;
-      const curAbs = cur.year * 12 + cur.monthIndex;
-      const tgtAbs = targetYear * 12 + targetMonth;
-      if (tgtAbs > curAbs) {
-        if (!(await clickNext())) break;
-      } else {
-        if (!(await clickPrev())) break;
-      }
-      await page.waitForTimeout(100);
-    }
-
-    // Click the target day
-    await page.getByRole('gridcell', { name: targetDay, exact: true }).click();
-  }
   async _trySimpleDateSelection(inputLocator, dateStr) {
     try {
       console.log(`[DatePickerUtils] _trySimpleDateSelection: Starting simple approach for date: ${dateStr}`);

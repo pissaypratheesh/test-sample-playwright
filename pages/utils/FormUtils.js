@@ -13,54 +13,43 @@ class FormUtils extends BasePage {
    * @param {Object} data - Policy data object
    */
   async fillPolicyDetails(data) {
-    // Previous Policy No (must be filled to enable OEM)
+    // Step 1: Select OEM FIRST (like original renewPolicy.js)
+    await this.selectMuiOption('#mui-component-select-FKOEM_ID', data.oem);
+    await this.page.waitForTimeout(500);
+
+    // Step 2: Select Vehicle Cover early (like original)
+    await this.selectMuiOption('#mui-component-select-CoverTypeId', data.vehicleCover);
+
+    // Step 3: Fill Previous Policy No
     await this.safeFill(
-      this.page.getByRole('textbox', { name: 'Previous Policy No *' }),
+      this.page.getByLabel('Previous Policy No'),
       data.prevPolicyNo
     );
 
-    // Wait for form to process the policy number
-    await this.page.waitForTimeout(2000);
+    // Step 4: Previous Vehicle Cover
+    await this.selectMuiOption('#mui-component-select-PREV_COVERTYPE_ID', data.prevVehicleCover);
 
-    // OEM selection (now enabled)
-    await this.selectDropdownOption(
-      this.page.getByRole('combobox', { name: 'OEM * --Select OEM--' }),
-      data.oem
-    );
+    // Step 5: NCB with numeric matching (like original)
+    await this.selectMuiOption('#mui-component-select-OLD_POL_NCB_LEVEL', data.ncb, { numeric: true });
 
-    // Previous Vehicle Cover
-    await this.selectDropdownOption(
-      this.page.getByRole('combobox', { name: 'OEM * --Select Previous Vehicle Cover--' }),
-      data.prevVehicleCover
-    );
+    // Step 6: Previous Insurance Company
+    await this.selectMuiOption('#mui-component-select-FKISURANCE_COMP_ID', data.prevPolicyIC);
 
-    // NCB Percentage - Convert percentage to number format
-    const ncbValue = this.convertNcbToNumber(data.ncb);
-    // Use direct combobox locator for NCB dropdown with special handling
-    const ncbDropdown = this.page.locator('#mui-component-select-OLD_POL_NCB_LEVEL');
-    await this.selectNcbOption(ncbDropdown, ncbValue);
-
-    // Previous Insurance Company
-    await this.selectDropdownOption(
-      this.page.getByRole('combobox', { name: 'OEM * --Select Previous OD Policy IC--' }),
-      data.prevPolicyIC
-    );
-
-    // Vehicle Cover (Current)
-    await this.selectDropdownOption(
-      this.page.getByRole('combobox', { name: 'OEM * --Select Vehicle Cover--' }),
-      data.vehicleCover
-    );
-
-    // Date fields - using more flexible locators
+    // Step 7: Date fields using original locators
     if (data.odPolicyExpiryDate) {
-      const odDateInput = this.page.locator('text=OD Policy Expiry Date').locator('..').locator('input').first();
-      await this.setDateOnInput(odDateInput, data.odPolicyExpiryDate);
+      const expiryInputs = this.page.locator('input[name="POLICY_EXPIRY_DATE"]');
+      const expiryCount = await expiryInputs.count();
+      if (expiryCount >= 1) {
+        await this.setDateOnInput(expiryInputs.nth(0), data.odPolicyExpiryDate);
+      }
     }
 
     if (data.tpPolicyExpiryDate) {
-      const tpDateInput = this.page.locator('text=TP Policy Expiry Date').locator('..').locator('input').first();
-      await this.setDateOnInput(tpDateInput, data.tpPolicyExpiryDate);
+      const expiryInputs = this.page.locator('input[name="POLICY_EXPIRY_DATE"]');
+      const expiryCount = await expiryInputs.count();
+      if (expiryCount >= 2) {
+        await this.setDateOnInput(expiryInputs.nth(1), data.tpPolicyExpiryDate);
+      }
     }
   }
 
@@ -141,15 +130,71 @@ class FormUtils extends BasePage {
 
     // Invoice Date
     if (data.invoiceDate) {
-      const invoiceDateInput = this.page.locator('text=Invoice Date').locator('..').locator('input').first();
-      await this.setDateOnInput(invoiceDateInput, data.invoiceDate);
+      await this.setDateOnInput(this.page.locator('input[name="InvoiceDate"]'), data.invoiceDate);
     }
 
     // Registration Date
     if (data.registrationDate) {
-      const regDateInput = this.page.locator('text=Registration Date').locator('..').locator('input').first();
-      await this.setDateOnInput(regDateInput, data.registrationDate);
+      await this.setDateOnInput(this.page.locator('input[name="RegistrationDate"]'), data.registrationDate);
     }
+  }
+
+  /**
+   * Select Material UI option (based on original renewPolicy.js)
+   * @param {string} selectLocator - Select element locator
+   * @param {string} optionText - Option text to select
+   * @param {Object} opts - Options like { numeric: true }
+   */
+  async selectMuiOption(selectLocator, optionText, opts = {}) {
+    const page = this.page;
+    await page.locator(selectLocator).click();
+    const list = page.locator('ul[role="listbox"]');
+    await list.waitFor({ state: 'visible', timeout: 10000 });
+    const options = list.locator('li[role="option"]');
+    const count = await options.count();
+    
+    const normalize = (s) => (s || '').trim();
+    const normalizeLoose = (s) => (s || '').replace(/\s+/g, '').toLowerCase();
+    const toNumeric = (s) => {
+      const m = (s || '').match(/\d+/);
+      return m ? m[0] : null;
+    };
+
+    // exact/contains match
+    for (let i = 0; i < count; i++) {
+      const text = normalize(await options.nth(i).innerText());
+      if (text === optionText || text.includes(optionText)) {
+        await options.nth(i).click();
+        return;
+      }
+    }
+
+    // loose match
+    const target = normalizeLoose(optionText);
+    for (let i = 0; i < count; i++) {
+      const text = normalizeLoose(await options.nth(i).innerText());
+      if (text.includes(target)) {
+        await options.nth(i).click();
+        return;
+      }
+    }
+
+    // numeric match (for NCB)
+    if (opts.numeric) {
+      const targetNum = toNumeric(optionText);
+      if (targetNum) {
+        for (let i = 0; i < count; i++) {
+          const text = normalize(await options.nth(i).innerText());
+          const textNum = toNumeric(text);
+          if (textNum === targetNum) {
+            await options.nth(i).click();
+            return;
+          }
+        }
+      }
+    }
+
+    throw new Error(`Option "${optionText}" not found in ${selectLocator}`);
   }
 
   /**
