@@ -1,0 +1,147 @@
+---
+description: Playwright-specific testing patterns and best practices
+globs: ['**/*.spec.js', '**/pages/**/*.js']
+alwaysApply: true
+---
+
+# Playwright Testing Patterns
+
+## Page Object Model Standards
+- **Inheritance**: Extend utility classes (BasePage, FormUtils, NavigationUtils)
+- **Method Naming**: Use descriptive method names (e.g., `fillPolicyDetails`, `navigateToRenewalFlow`)
+- **Error Handling**: Implement retry mechanisms for flaky operations
+- **Screenshots**: Take screenshots at key points for debugging
+
+## Locator Strategy Requirements
+- **Relative XPath**: Prefer relative XPath locators over absolute ones
+- **Role-based**: Use `getByRole()` when possible for accessibility
+- **Text-based**: Use `getByText()` for visible text elements
+- **Flexible Selectors**: Use parent-child relationships for dynamic content
+
+## Wait Strategy Implementation
+- **Element Waits**: Always wait for elements before interaction
+- **Page Loads**: Wait for page load completion
+- **Network Idle**: Wait for network requests to complete
+- **Custom Waits**: Implement custom wait conditions for specific scenarios
+
+## Test Data Management
+- **External Files**: Use JSON files for test data
+- **Data Validation**: Validate test data before use
+- **Dynamic Data**: Generate dynamic data when needed (VIN, Engine numbers)
+- **Environment-specific**: Use different data for different environments
+
+## Error Handling Patterns
+```javascript
+// Retry mechanism example
+async safeClick(locator, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      await this.waitForElement(locator);
+      await locator.click();
+      return;
+    } catch (error) {
+      if (i === retries - 1) throw error;
+      await this.page.waitForTimeout(1000);
+    }
+  }
+}
+```
+
+## Form Interaction Standards
+- **Dropdown Selection**: Use `selectDropdownOption()` utility method
+- **Date Input**: Use `setDateOnInput()` with multiple fallback strategies
+- **Text Input**: Use `safeFill()` with retry mechanism
+- **Radio Buttons**: Use `selectRadioOption()` utility method
+
+## Test Organization Patterns
+- **Describe Blocks**: Group related tests logically
+- **Before/After Hooks**: Use setup and teardown appropriately
+- **Test Data**: Pass test data as parameters
+- **Assertions**: Use meaningful assertions with clear messages
+
+## Screenshot Strategy
+- **Key Points**: Take screenshots before/after major operations
+- **Failures**: Automatically capture screenshots on test failures
+- **Debugging**: Include screenshots in test reports
+- **Naming**: Use descriptive screenshot names
+
+## Performance Optimization
+- **Parallel Execution**: Design tests to run in parallel
+- **Resource Cleanup**: Properly close browsers and contexts
+- **Timeout Management**: Use appropriate timeouts
+- **Efficient Locators**: Use fast, stable locator strategies
+
+## Configuration Management
+- **Centralized Config**: Use config files for settings
+- **Environment Variables**: Use env vars for sensitive data
+- **Dynamic Configuration**: Support different environments
+- **Default Values**: Provide sensible defaults
+
+## Debugging Support
+- **Console Logging**: Include meaningful console output
+- **Error Context**: Provide context in error messages
+- **Step-by-step**: Log major test steps
+- **Troubleshooting**: Include troubleshooting information
+
+## Code Examples
+
+### Page Object Pattern
+```javascript
+class RenewPolicyPage extends FormUtils {
+  constructor(page) {
+    super(page);
+    this.navigation = new NavigationUtils(page);
+  }
+
+  async runRenewalFlow(testdata, creds, proposalDetails = null) {
+    await this.navigation.navigateToLoginPage();
+    await this.navigation.login(creds);
+    await this.navigation.navigateToPolicyIssuance();
+    await this.navigation.navigateToRenewalFlow();
+    await this.fillPolicyDetails(testdata);
+  }
+}
+```
+
+### Test Pattern
+```javascript
+test('Renew Policy - Complete Flow', async ({ page }) => {
+  const renewPolicyPage = new RenewPolicyPage(page);
+  await renewPolicyPage.takeFormScreenshot('before-renewal.png');
+  await renewPolicyPage.runRenewalFlow(testdata, creds, proposalDetails);
+  const isComplete = await renewPolicyPage.validateFormCompletion();
+  expect(isComplete).toBe(true);
+});
+```
+
+### Utility Method Pattern
+```javascript
+async selectDropdownOption(dropdownLocator, optionText, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      await this.waitForElement(dropdownLocator);
+      await dropdownLocator.click();
+      await this.page.waitForTimeout(500);
+      const optionLocator = this.page.getByRole('option', { name: optionText });
+      await this.waitForElement(optionLocator, 5000);
+      await optionLocator.click();
+      return;
+    } catch (error) {
+      if (i === retries - 1) throw error;
+      await this.page.waitForTimeout(1000);
+    }
+  }
+}
+```
+
+## Quality Checklist
+- [ ] Page objects extend utility classes
+- [ ] All interactions use retry mechanisms
+- [ ] Screenshots taken at key points
+- [ ] Test data externalized to JSON files
+- [ ] Proper wait strategies implemented
+- [ ] Error handling with meaningful messages
+- [ ] JSDoc comments for all public methods
+- [ ] Tests designed for parallel execution
+- [ ] Resources properly cleaned up
+- [ ] Configuration externalized

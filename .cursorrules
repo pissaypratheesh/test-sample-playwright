@@ -1,0 +1,111 @@
+# Project Coding Standards - Playwright Test Automation
+
+## Code Reusability
+- **Modular Design**: Ensure that code is modular and reusable across different parts of the application
+- **Componentization**: Break down functionalities into smaller, reusable components or functions
+- **Utility Classes**: Create utility classes for common operations (BasePage, FormUtils, NavigationUtils)
+- **DRY Principle**: Don't Repeat Yourself - extract common patterns into reusable methods
+- **Inheritance**: Use class inheritance to extend functionality and avoid code duplication
+
+## File Length Constraints
+- **Maximum Lines per File**: Limit each file to a maximum of 300 lines to maintain readability and manageability
+- **Refactoring**: If a file exceeds the line limit, consider refactoring by splitting it into smaller, focused modules
+- **Single Responsibility**: Each file should have a single, well-defined responsibility
+- **Modular Structure**: Split large files into utility classes, page objects, and test specifications
+
+## Naming Conventions
+- **Variables and Functions**: Use camelCase for variable and function names (e.g., `fillPolicyDetails`, `navigateToLogin`)
+- **Classes**: Use PascalCase for class names (e.g., `RenewPolicyPage`, `FormUtils`)
+- **Files**: Use PascalCase for page objects and camelCase for utilities (e.g., `RenewPolicyPage.js`, `formUtils.js`)
+- **Constants**: Use UPPER_SNAKE_CASE for constants (e.g., `DEFAULT_TIMEOUT`, `MAX_RETRIES`)
+- **Test Files**: Use descriptive names with `.spec.js` suffix (e.g., `renewTataClean.spec.js`)
+
+## Playwright-Specific Standards
+- **Locator Strategy**: Prefer relative XPath locators over absolute ones for better stability
+- **Wait Strategies**: Always use proper wait strategies (waitForElement, waitForPageLoad)
+- **Error Handling**: Implement comprehensive error handling with retry mechanisms
+- **Screenshots**: Take screenshots at key points for debugging purposes
+- **Data-Driven Testing**: Use external JSON files for test data to promote reusability
+
+## Code Organization
+- **Page Object Model**: Use Page Object Model pattern for UI interactions
+- **Utility Classes**: Create separate utility classes for common operations
+- **Configuration**: Centralize configuration in separate files
+- **Test Data**: Keep test data in separate JSON files
+- **Documentation**: Maintain comprehensive README and inline documentation
+
+## Error Handling & Reliability
+- **Retry Mechanisms**: Implement retry logic for flaky operations
+- **Timeout Management**: Use appropriate timeouts for different operations
+- **Graceful Degradation**: Handle errors gracefully without breaking the entire test suite
+- **Logging**: Provide meaningful error messages and logging
+- **Screenshots**: Capture screenshots on failures for debugging
+
+## Testing Standards
+- **Test Structure**: Use descriptive test names and organize tests logically
+- **Assertions**: Use meaningful assertions with clear error messages
+- **Test Data**: Use external test data files for maintainability
+- **Coverage**: Aim for comprehensive test coverage across different scenarios
+- **Parallel Execution**: Design tests to run in parallel when possible
+
+## Documentation Requirements
+- **JSDoc Comments**: Provide JSDoc comments for all public methods
+- **README**: Maintain an updated README file with setup instructions
+- **Code Comments**: Add inline comments for complex logic
+- **API Documentation**: Document all utility methods and their parameters
+- **Examples**: Provide usage examples for complex operations
+
+## Version Control Standards
+- **Commit Messages**: Follow Conventional Commits standard (feat:, fix:, test:, docs:)
+- **Branch Naming**: Use descriptive branch names (feature/reusable-utilities, fix/ncb-selection)
+- **Code Review**: Ensure all code changes are reviewed before merging
+- **Clean History**: Maintain a clean git history with meaningful commits
+
+## Performance Considerations
+- **Efficient Locators**: Use efficient locator strategies to minimize wait times
+- **Parallel Execution**: Design tests to run in parallel when possible
+- **Resource Management**: Properly manage browser resources and cleanup
+- **Timeout Optimization**: Use appropriate timeouts to balance speed and reliability
+
+## Security & Best Practices
+- **Credential Management**: Never hardcode credentials in test files
+- **Data Privacy**: Handle sensitive test data appropriately
+- **Environment Separation**: Use different configurations for different environments
+- **Cleanup**: Always clean up resources after test execution
+
+## Code Quality Metrics
+- **Cyclomatic Complexity**: Keep function complexity low (max 10)
+- **Code Duplication**: Minimize code duplication through proper abstraction
+- **Maintainability Index**: Aim for high maintainability scores
+- **Test Coverage**: Maintain at least 80% test coverage for utility functions
+
+## File Structure Standards
+```
+├── pages/
+│   ├── utils/           # Utility classes (max 200 lines each)
+│   └── *.js            # Page objects (max 300 lines each)
+├── tests/
+│   └── *.spec.js       # Test specifications (max 300 lines each)
+├── testdata/
+│   └── *.json          # Test data files
+├── config/
+│   └── *.js            # Configuration files
+└── docs/
+    └── *.md            # Documentation files
+```
+
+## Implementation Guidelines
+- **Start Small**: Begin with basic functionality and gradually add complexity
+- **Test Early**: Write tests as you develop new features
+- **Refactor Regularly**: Continuously refactor code to improve maintainability
+- **Document Changes**: Document any breaking changes or new patterns
+- **Review Patterns**: Regularly review and update coding patterns based on team feedback
+
+## Tools & Automation
+- **Linting**: Use ESLint for JavaScript code quality
+- **Formatting**: Use Prettier for consistent code formatting
+- **Pre-commit Hooks**: Implement pre-commit hooks for code quality checks
+- **CI/CD**: Integrate automated testing in CI/CD pipeline
+- **Code Coverage**: Monitor and report code coverage metrics
+
+Remember: The goal is to create maintainable, reusable, and reliable test automation code that can be easily understood and extended by team members.

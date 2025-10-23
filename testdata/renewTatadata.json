@@ -1,5 +1,6 @@
 {
-  "oem": "Ford",
+  "prevPolicyType": "Non TMIBASL Policy",
+  "oem": "FORD",
   "prevPolicyNo": "2WERDFT56",
   "prevVehicleCover": "1 OD + 1 TP",
   "ncb": "20%",
@@ -9,7 +10,7 @@
   "firstName": "JOHNNY",
   "email": "naer@hji.com",
   "mobile": "8765456789",
-  "make": "Ford",
+  "make": "FORD",
   "model": "ECOSPORT",
   "variant": "1.0 ECOSPORT PTL TIT",
   "year": "2024",

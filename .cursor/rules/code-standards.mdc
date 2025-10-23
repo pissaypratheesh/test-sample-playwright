@@ -1,0 +1,95 @@
+---
+description: Enforce coding standards for Playwright test automation project
+globs: ['**/*.js', '**/*.json']
+alwaysApply: true
+---
+
+# Playwright Test Automation Coding Standards
+
+## File Length & Organization
+- **Maximum Lines**: Limit each file to 300 lines maximum
+- **Modular Design**: Split large files into focused utility classes
+- **Single Responsibility**: Each file should have one clear purpose
+- **Reusable Components**: Extract common patterns into utility classes
+
+## Code Reusability Requirements
+- **Utility Classes**: Create BasePage, FormUtils, NavigationUtils for common operations
+- **DRY Principle**: Don't repeat code - extract into reusable methods
+- **Inheritance**: Use class inheritance to extend functionality
+- **Configuration**: Centralize settings in config files
+- **Test Data**: Use external JSON files for test data
+
+## Naming Conventions
+- **Variables/Functions**: camelCase (e.g., `fillPolicyDetails`, `navigateToLogin`)
+- **Classes**: PascalCase (e.g., `RenewPolicyPage`, `FormUtils`)
+- **Files**: PascalCase for page objects, camelCase for utilities
+- **Constants**: UPPER_SNAKE_CASE (e.g., `DEFAULT_TIMEOUT`)
+- **Test Files**: Descriptive names with `.spec.js` suffix
+
+## Playwright Best Practices
+- **Locators**: Use relative XPath locators for stability
+- **Waits**: Always implement proper wait strategies
+- **Error Handling**: Include retry mechanisms and graceful error handling
+- **Screenshots**: Take screenshots at key points for debugging
+- **Data-Driven**: Use external JSON files for test data
+
+## Code Quality Standards
+- **JSDoc**: Document all public methods with JSDoc comments
+- **Comments**: Add inline comments for complex logic
+- **Error Messages**: Provide meaningful error messages
+- **Logging**: Include appropriate logging for debugging
+- **Cleanup**: Always clean up resources after test execution
+
+## Test Structure Requirements
+- **Descriptive Names**: Use clear, descriptive test names
+- **Organization**: Group related tests logically
+- **Assertions**: Use meaningful assertions with clear messages
+- **Coverage**: Aim for comprehensive test coverage
+- **Parallel Execution**: Design tests to run in parallel when possible
+
+## File Structure Standards
+```
+pages/
+├── utils/           # Utility classes (max 200 lines)
+└── *.js            # Page objects (max 300 lines)
+tests/
+└── *.spec.js       # Test specs (max 300 lines)
+testdata/
+└── *.json          # Test data files
+config/
+└── *.js            # Configuration files
+```
+
+## Implementation Guidelines
+- **Start Simple**: Begin with basic functionality, add complexity gradually
+- **Test First**: Write tests as you develop features
+- **Refactor Often**: Continuously improve code maintainability
+- **Document Changes**: Document breaking changes and new patterns
+- **Review Regularly**: Update patterns based on team feedback
+
+## Performance & Reliability
+- **Efficient Locators**: Use fast, stable locator strategies
+- **Timeout Management**: Use appropriate timeouts for different operations
+- **Resource Management**: Properly manage browser resources
+- **Parallel Execution**: Design for parallel test execution
+- **Error Recovery**: Implement robust error recovery mechanisms
+
+## Security & Best Practices
+- **No Hardcoded Credentials**: Use external credential files
+- **Data Privacy**: Handle sensitive data appropriately
+- **Environment Separation**: Use different configs for different environments
+- **Clean State**: Ensure clean test state between runs
+
+## Code Review Checklist
+- [ ] File length under 300 lines
+- [ ] Reusable components extracted
+- [ ] Proper error handling implemented
+- [ ] JSDoc comments added
+- [ ] Test data externalized
+- [ ] Screenshots included for debugging
+- [ ] Meaningful variable/function names
+- [ ] No code duplication
+- [ ] Proper cleanup implemented
+- [ ] Configuration externalized
+
+Remember: Focus on creating maintainable, reusable, and reliable test automation code that team members can easily understand and extend.
