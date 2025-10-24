@@ -328,7 +328,7 @@ class ProposalDetailsPage extends BaseRenewalPage {
       console.log('Filling EI account number...');
       const eiInput = this.page.locator('input[name="EI_ACCOUNT_NO"]');
       if (await eiInput.isVisible({ timeout: 2000 })) {
-        await this.fillInput(eiInput, personalDetails.eiAccountNo || '');
+        await this.fillInput(eiInput, personalDetails.eiAccountNo);
       }
     } catch (e) {
       console.log('Error filling EI account number:', e.message);

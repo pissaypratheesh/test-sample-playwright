@@ -16,25 +16,15 @@ class VehicleDetailsHandler extends BaseRenewalPage {
   async fillVehicleDetails(data) {
     console.log('Filling Vehicle Details...');
     
-    // Generate random VIN and Engine numbers
-    const randomVin = this.generateRandomVin();
-    const randomEngineNo = this.generateRandomEngineNo();
-    
-    // Save generated values for later use
-    const fs = require('fs');
-    const path = require('path');
-    fs.writeFileSync(path.join(__dirname, '../../../testdata/generated_vin.json'), JSON.stringify({ vin: randomVin }, null, 2));
-    fs.writeFileSync(path.join(__dirname, '../../../testdata/generated_engine.json'), JSON.stringify({ engine: randomEngineNo }, null, 2));
-    
-    // VIN (Chassis No)
-    console.log(`🔍 [VehicleDetailsHandler] Generated VIN: ${randomVin}`);
+    // VIN (Chassis No) - Use from test data
+    console.log(`🔍 [VehicleDetailsHandler] Using VIN from test data: ${data.vin}`);
     const vinInput = this.page.locator('input[name="ChassisNo"]');
     const isVinVisible = await vinInput.isVisible().catch(() => false);
     console.log(`🔍 [VehicleDetailsHandler] VIN field visible: ${isVinVisible}`);
     
     if (isVinVisible) {
-      await this.fillInput(vinInput, randomVin);
-      console.log(`✅ VIN filled: ${randomVin}`);
+      await this.fillInput(vinInput, data.vin);
+      console.log(`✅ VIN filled: ${data.vin}`);
     } else {
       console.log('🔍 [VehicleDetailsHandler] VIN field not visible, trying alternative selectors...');
       // Try alternative selectors
@@ -43,15 +33,16 @@ class VehicleDetailsHandler extends BaseRenewalPage {
       console.log(`🔍 [VehicleDetailsHandler] VIN field (alt) visible: ${isVinAltVisible}`);
       
       if (isVinAltVisible) {
-        await this.fillInput(vinInputAlt, randomVin);
-        console.log(`✅ VIN filled (alt): ${randomVin}`);
+        await this.fillInput(vinInputAlt, data.vin);
+        console.log(`✅ VIN filled (alt): ${data.vin}`);
       } else {
         console.log('❌ VIN field not found with any selector');
       }
     }
     
-    // Engine No
-    await this.fillInput(this.page.locator('input[name="EngineNo"]'), randomEngineNo);
+    // Engine No - Use from test data
+    console.log(`🔍 [VehicleDetailsHandler] Using Engine No from test data: ${data.engineNo}`);
+    await this.fillInput(this.page.locator('input[name="EngineNo"]'), data.engineNo);
     
     // Make
     await this.selectMuiOption('#mui-component-select-MakeId', data.make);
@@ -72,22 +63,6 @@ class VehicleDetailsHandler extends BaseRenewalPage {
     await this.selectMuiOption('#mui-component-select-IsuredStateId', data.customerState);
     
     console.log('✅ Vehicle Details filled');
-  }
-
-  /**
-   * Generate random VIN number
-   * @returns {string} Random VIN number
-   */
-  generateRandomVin() {
-    return Array.from({ length: 17 }, () => Math.floor(Math.random() * 36).toString(36)).join('').toUpperCase();
-  }
-
-  /**
-   * Generate random Engine number
-   * @returns {string} Random Engine number
-   */
-  generateRandomEngineNo() {
-    return Array.from({ length: 17 }, () => Math.floor(Math.random() * 36).toString(36)).join('').toUpperCase();
   }
 }
 

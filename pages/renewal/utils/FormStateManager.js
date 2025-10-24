@@ -26,7 +26,7 @@ class FormStateManager {
   updateFromPolicyVehicleData(policyVehicleData) {
     this.formState.selectedOEM = policyVehicleData.oem;
     this.formState.selectedVehicleCover = policyVehicleData.vehicleCover;
-    this.formState.selectedProposerType = policyVehicleData.proposerType || 'Individual';
+    this.formState.selectedProposerType = policyVehicleData.proposerType;
     this.formState.currentStep = 'additionalDetails';
     
     console.log('📊 Form State Updated from Policy Vehicle Data:');
@@ -88,7 +88,7 @@ class FormStateManager {
    * @returns {boolean} Whether section is enabled
    */
   isDynamicSectionEnabled(sectionName) {
-    return this.formState.dynamicSections[sectionName] || false;
+    return this.formState.dynamicSections[sectionName];
   }
 
   /**

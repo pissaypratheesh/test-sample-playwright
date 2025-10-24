@@ -29,7 +29,7 @@ class PolicyVehicleDetailsPage {
     await this.oemHandler.selectOEM(data.oem);
     
     // Step 2: Select Proposer Type (Individual/Corporate)
-    await this.oemHandler.selectProposerType(data.proposerType || 'Individual');
+    await this.oemHandler.selectProposerType(data.proposerType);
     
     // Step 3: Select Vehicle Cover (affects form fields)
     await this.oemHandler.selectVehicleCover(data.vehicleCover);

@@ -10,8 +10,8 @@ test('Renew Ford E2E (modular structure, data-driven)', async ({ page }) => {
   await renewalFormSystem.executeWithCustomData(
     testdata, // Policy Vehicle data
     { 
-      ncbLevel: testdata.ncbLevel || '20',
-      voluntaryExcess: testdata.voluntaryExcess || '2500',
+      ncbLevel: testdata.ncbLevel,
+      voluntaryExcess: testdata.voluntaryExcess,
       aaiMembership: false,
       handicappedDiscount: false,
       antiTheftDiscount: false

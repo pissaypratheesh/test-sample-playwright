@@ -30,7 +30,6 @@ class Page1DataManager {
     console.log('🔄 Processing Page 1 data...');
     
     const processedData = {
-      ...this.defaultData,
       ...rawData
     };
 
@@ -42,9 +41,6 @@ class Page1DataManager {
 
     // Apply vehicle cover transformations
     this.applyVehicleCoverTransformations(processedData);
-
-    // Generate dynamic data
-    this.generateDynamicData(processedData);
 
     console.log('✅ Page 1 data processed successfully');
     return processedData;
@@ -140,28 +136,8 @@ class Page1DataManager {
     }
 
     // Generate registration details if not provided
-    if (!data.registrationStateRto) {
-      data.registrationStateRto = 'DL-06';
-    }
-    if (!data.registrationSeries) {
-      data.registrationSeries = 'RAA';
-    }
     if (!data.registrationNumber) {
       data.registrationNumber = this.generateRandomRegistrationNumber();
-    }
-
-    // Set default dates if not provided
-    if (!data.invoiceDate) {
-      data.invoiceDate = '01/01/2024';
-    }
-    if (!data.registrationDate) {
-      data.registrationDate = '01/01/2024';
-    }
-    if (!data.odPolicyExpiryDate) {
-      data.odPolicyExpiryDate = '10/10/2025';
-    }
-    if (!data.tpPolicyExpiryDate) {
-      data.tpPolicyExpiryDate = '10/10/2025';
     }
   }
 
@@ -218,7 +194,7 @@ class Page1DataManager {
       }
     };
 
-    return configurations[oem] || configurations['Ford'];
+    return configurations[oem];
   }
 }
 
@@ -246,7 +222,6 @@ class Page2DataManager {
     console.log('🔄 Processing Page 2 data...');
     
     const processedData = {
-      ...this.defaultData,
       ...rawData
     };
 
@@ -415,7 +390,7 @@ class Page3DataManager {
   processPage3Data(rawData) {
     console.log('🔄 Processing Page 3 data...');
     
-    const processedData = this.deepMerge(this.defaultData, rawData);
+    const processedData = this.deepMerge({}, rawData);
 
     // Validate required sections
     this.validatePage3Data(processedData);
@@ -441,7 +416,7 @@ class Page3DataManager {
     
     for (const key in source) {
       if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
-        result[key] = this.deepMerge(target[key] || {}, source[key]);
+        result[key] = this.deepMerge(target[key], source[key]);
       } else {
         result[key] = source[key];
       }

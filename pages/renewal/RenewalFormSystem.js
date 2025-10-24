@@ -242,9 +242,9 @@ class RenewalFormSystem {
         ...baseTemplate.page2,
         ncbLevel: enabledSections.ncbCarryForward ? '25' : undefined,
         voluntaryExcess: enabledSections.voluntaryExcess ? '3000' : undefined,
-        aaiMembership: enabledSections.aaiMembership || false,
-        handicappedDiscount: enabledSections.handicappedDiscount || false,
-        antiTheftDiscount: enabledSections.antiTheftDiscount || false,
+        aaiMembership: enabledSections.aaiMembership,
+        handicappedDiscount: enabledSections.handicappedDiscount,
+        antiTheftDiscount: enabledSections.antiTheftDiscount,
         ...baseData.page2
       },
       page3: {
@@ -267,7 +267,7 @@ class RenewalFormSystem {
     
     for (const key in source) {
       if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
-        result[key] = this.deepMerge(target[key] || {}, source[key]);
+        result[key] = this.deepMerge(target[key], source[key]);
       } else {
         result[key] = source[key];
       }
