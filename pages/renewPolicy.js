@@ -1335,6 +1335,11 @@ class RenewPolicyPage {
             console.log('Error waiting for navigation:', navError.message);
           }
           
+          // Wait for 20 seconds on the proposal preview page before exiting
+          console.log('Waiting 20 seconds on proposal preview page before exiting...');
+          await page.waitForTimeout(20000);
+          console.log('✅ 20 seconds completed, exiting test...');
+          
         } else {
           console.log('Proposal Preview button not found');
         }
