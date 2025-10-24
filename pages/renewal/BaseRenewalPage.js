@@ -29,7 +29,7 @@ class BaseRenewalPage {
     }
     
     const list = page.locator('ul[role="listbox"]');
-    await list.waitFor({ state: 'visible', timeout: 10000 });
+    await list.waitFor({ state: 'visible', timeout: 3000 });
     const options = list.locator('li[role="option"]');
     const count = await options.count();
     
@@ -94,7 +94,7 @@ class BaseRenewalPage {
       const success = await this.datePickerCore.setDateOnMaterialUIPicker(
         input, 
         dateStr,
-        { timeout: 10000 }
+        { timeout: 5000 }
       );
       
       if (success) {
@@ -256,7 +256,7 @@ class BaseRenewalPage {
     
     // Reuse listbox selection logic
     const list = page.locator('ul[role="listbox"], [role="listbox"]');
-    await list.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
+    await list.waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
     const options = list.locator('li[role="option"], [role="option"]');
     const count = await options.count();
     

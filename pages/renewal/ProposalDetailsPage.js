@@ -542,7 +542,7 @@ class ProposalDetailsPage extends BaseRenewalPage {
         const success = await this.datePickerCore.setDateOnMaterialUIPicker(
           policyToInput, 
           ncbCarryForwardDetails.policyPeriodTo,
-          { timeout: 10000 }
+          { timeout: 2500 }
         );
         
         if (success) {
