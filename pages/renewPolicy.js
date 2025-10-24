@@ -1,6 +1,7 @@
 const { expect } = require('@playwright/test');
 const fs = require('fs');
 const path = require('path');
+const DatePickerCore = require('./utils/core/datepicker_copy/DatePickerCore');
 
 class RenewPolicyPage {
   constructor(page) {
@@ -777,12 +778,46 @@ class RenewPolicyPage {
         console.log('Error filling last name:', e.message);
       }
       
-      // Date of Birth - Use direct JavaScript injection for readonly fields
+      // Date of Birth - Use DatePickerCore for proper date picker interaction
       try {
-        console.log('Filling date of birth...');
+        console.log('Filling date of birth using DatePickerCore...');
         const dobInput = page.locator('input[name="DOB"]');
         if (await dobInput.isVisible({ timeout: 2000 })) {
-          // For readonly DOB fields, use direct JavaScript injection
+          // Initialize DatePickerCore
+          const datePickerCore = new DatePickerCore(page);
+          
+          // Use the year-month-day selection approach for DOB
+          console.log(`Setting DOB to: ${data.personalDetails.dateOfBirth}`);
+          const success = await datePickerCore.setDateOnMaterialUIPicker(
+            dobInput, 
+            data.personalDetails.dateOfBirth,
+            { timeout: 10000 }
+          );
+          
+          if (success) {
+            const currentValue = await dobInput.inputValue();
+            console.log(`✅ DOB set successfully using DatePickerCore: ${currentValue}`);
+          } else {
+            console.log('❌ DatePickerCore failed, trying fallback method...');
+            // Fallback to direct JavaScript injection
+            await dobInput.evaluate((el, value) => {
+              el.removeAttribute('readonly');
+              el.readOnly = false;
+              el.value = value;
+              el.dispatchEvent(new Event('input', { bubbles: true }));
+              el.dispatchEvent(new Event('change', { bubbles: true }));
+              el.dispatchEvent(new Event('blur', { bubbles: true }));
+            }, data.personalDetails.dateOfBirth);
+            
+            const currentValue = await dobInput.inputValue();
+            console.log(`DOB set using fallback method: ${currentValue}`);
+          }
+        }
+      } catch (e) {
+        console.log('Error filling date of birth:', e.message);
+        // Final fallback - try direct value setting
+        try {
+          const dobInput = page.locator('input[name="DOB"]');
           await dobInput.evaluate((el, value) => {
             el.removeAttribute('readonly');
             el.readOnly = false;
@@ -791,13 +826,10 @@ class RenewPolicyPage {
             el.dispatchEvent(new Event('change', { bubbles: true }));
             el.dispatchEvent(new Event('blur', { bubbles: true }));
           }, data.personalDetails.dateOfBirth);
-          
-          // Verify the value was set
-          const currentValue = await dobInput.inputValue();
-          console.log(`DOB set to: ${currentValue}`);
+          console.log('DOB set using final fallback method');
+        } catch (fallbackError) {
+          console.log('All DOB setting methods failed:', fallbackError.message);
         }
-      } catch (e) {
-        console.log('Error filling date of birth:', e.message);
       }
       
       // Email
@@ -846,13 +878,16 @@ class RenewPolicyPage {
         console.log('Error filling alternate mobile number:', e.message);
       }
       
-      // Address Line 1
+      // Address Line 1 - Fixed with correct field name from HTML
       try {
         console.log('Filling address line 1...');
-        const addr1Input = page.locator('input[name="ADDRESS_LINE1"], textarea[name="ADDRESS_LINE1"]');
+        const addr1Input = page.locator('input[name="ADDRESS1"]');
         if (await addr1Input.isVisible({ timeout: 2000 })) {
           await addr1Input.clear();
           await addr1Input.fill(data.personalDetails.addressLine1);
+          console.log('✅ Address Line 1 set successfully');
+        } else {
+          console.log('Address Line 1 field not found');
         }
       } catch (e) {
         console.log('Error filling address line 1:', e.message);
@@ -898,14 +933,11 @@ class RenewPolicyPage {
         console.log('Error filling city:', e.message);
       }
       
-      // Pincode
+      // Pincode - Use MUI select dropdown approach
       try {
         console.log('Filling pincode...');
-        const pincodeInput = page.locator('input[name="PIN"]');
-        if (await pincodeInput.isVisible({ timeout: 2000 })) {
-          await pincodeInput.clear();
-          await pincodeInput.fill(data.personalDetails.pinCode);
-        }
+        await this._selectMuiOption('#mui-component-select-PIN', data.personalDetails.pinCode);
+        console.log('✅ Pincode set successfully');
       } catch (e) {
         console.log('Error filling pincode:', e.message);
       }
@@ -1105,6 +1137,29 @@ class RenewPolicyPage {
           console.log('Could not fill Office Address:', e.message);
         }
         
+        // NCB Document Submitted Checkbox - Fixed with exact HTML selectors
+        try {
+          console.log('Setting NCB Document Submitted checkbox...');
+          if (data.ncbCarryForwardDetails.ncbDocumentSubmitted) {
+            // Use the exact name from HTML
+            const ncbCheckbox = page.locator('input[name="PREV_VEH_ISNCBCERTIFICATE"]');
+            
+            if (await ncbCheckbox.isVisible({ timeout: 2000 })) {
+              const isChecked = await ncbCheckbox.isChecked();
+              if (!isChecked) {
+                await ncbCheckbox.click();
+                console.log('✅ NCB Document Submitted checkbox checked');
+              } else {
+                console.log('✅ NCB Document Submitted checkbox already checked');
+              }
+            } else {
+              console.log('NCB Document Submitted checkbox not found');
+            }
+          }
+        } catch (e) {
+          console.log('Error setting NCB Document Submitted checkbox:', e.message);
+        }
+        
         // Policy Period From
         try {
           const policyFromInput = page.locator('input[name="PREV_VEH_POLICYSTARTDATE"]');
@@ -1115,11 +1170,32 @@ class RenewPolicyPage {
           console.log('Could not fill Policy Period From:', e.message);
         }
         
-        // Policy Period To
+        // Policy Period To - Use DatePickerCore for reliable date setting
         try {
+          console.log('Filling Policy Period To using DatePickerCore...');
           const policyToInput = page.locator('input[name="PREV_VEH_POLICYENDDATE"]');
           if (await policyToInput.isVisible({ timeout: 2000 })) {
-            await this._setDateOnInput(policyToInput, data.policyDetails.policyPeriodTo);
+            // Initialize DatePickerCore
+            const datePickerCore = new DatePickerCore(page);
+            
+            // Use the year-month-day selection approach
+            console.log(`Setting Policy Period To to: ${data.policyDetails.policyPeriodTo}`);
+            const success = await datePickerCore.setDateOnMaterialUIPicker(
+              policyToInput, 
+              data.policyDetails.policyPeriodTo,
+              { timeout: 10000 }
+            );
+            
+            if (success) {
+              const currentValue = await policyToInput.inputValue();
+              console.log(`✅ Policy Period To set successfully using DatePickerCore: ${currentValue}`);
+            } else {
+              console.log('❌ DatePickerCore failed for Policy Period To, trying fallback...');
+              // Fallback to _setDateOnInput
+              await this._setDateOnInput(policyToInput, data.policyDetails.policyPeriodTo);
+              const currentValue = await policyToInput.inputValue();
+              console.log(`Policy Period To set using fallback: ${currentValue}`);
+            }
           }
         } catch (e) {
           console.log('Could not fill Policy Period To:', e.message);
@@ -1192,10 +1268,14 @@ class RenewPolicyPage {
         // Continue with the test even if payment mode fails
       }
       
-      // DP Name
+      // DP Name - Use direct option selection approach
       try {
         console.log('Filling DP Name...');
-        await this._selectMuiOption('#mui-component-select-AgentID', data.paymentDetails.dpName);
+        // First click to open the dropdown
+        await this.page.locator('#mui-component-select-AgentID').click();
+        // Then select the option
+        await this.page.getByRole('option', { name: data.paymentDetails.dpName }).click();
+        console.log('✅ DP Name set successfully');
       } catch (e) {
         console.log('Could not fill DP Name:', e.message);
       }
@@ -1209,6 +1289,52 @@ class RenewPolicyPage {
         if (await proposalPreviewButton.isVisible({ timeout: 5000 })) {
           await proposalPreviewButton.click();
           console.log('✅ Proposal Preview button clicked successfully');
+          
+          // Wait for navigation to proposal preview/confirmation page
+          try {
+            console.log('Waiting for navigation to proposal preview page...');
+            await page.waitForLoadState('networkidle', { timeout: 10000 });
+            
+            // Check if we're on a different page (proposal preview/confirmation)
+            const currentUrl = page.url();
+            console.log(`Current URL after button click: ${currentUrl}`);
+            
+            // Look for indicators that we're on the proposal preview page
+            const previewIndicators = [
+              'text=Proposal Preview',
+              'text=Review Proposal',
+              'text=Confirm Proposal',
+              'text=Proposal Summary',
+              'text=Policy Summary',
+              'h1:has-text("Proposal")',
+              'h2:has-text("Proposal")',
+              'h3:has-text("Proposal")'
+            ];
+            
+            let foundPreviewPage = false;
+            for (const indicator of previewIndicators) {
+              try {
+                if (await page.locator(indicator).isVisible({ timeout: 2000 })) {
+                  console.log(`✅ Successfully navigated to proposal preview page! Found indicator: ${indicator}`);
+                  foundPreviewPage = true;
+                  break;
+                }
+              } catch (e) {
+                continue;
+              }
+            }
+            
+            if (!foundPreviewPage) {
+              console.log('⚠️ Navigation may not have occurred or preview page not detected');
+              // Take a screenshot for debugging
+              await page.screenshot({ path: '.playwright-mcp/proposal-preview-page.png' });
+              console.log('Screenshot saved for debugging: proposal-preview-page.png');
+            }
+            
+          } catch (navError) {
+            console.log('Error waiting for navigation:', navError.message);
+          }
+          
         } else {
           console.log('Proposal Preview button not found');
         }
