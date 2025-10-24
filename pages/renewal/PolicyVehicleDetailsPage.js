@@ -1,6 +1,7 @@
 const OEMSelectionHandler = require('./components/OEMSelectionHandler');
 const PreviousPolicyHandler = require('./components/PreviousPolicyHandler');
 const CustomerDetailsHandler = require('./components/CustomerDetailsHandler');
+const CompanyDetailsHandler = require('./components/CompanyDetailsHandler');
 const VehicleDetailsHandler = require('./components/VehicleDetailsHandler');
 const RegistrationDetailsHandler = require('./components/RegistrationDetailsHandler');
 
@@ -14,6 +15,7 @@ class PolicyVehicleDetailsPage {
     this.oemHandler = new OEMSelectionHandler(page);
     this.previousPolicyHandler = new PreviousPolicyHandler(page);
     this.customerHandler = new CustomerDetailsHandler(page);
+    this.companyHandler = new CompanyDetailsHandler(page);
     this.vehicleHandler = new VehicleDetailsHandler(page);
     this.registrationHandler = new RegistrationDetailsHandler(page);
   }
@@ -37,8 +39,16 @@ class PolicyVehicleDetailsPage {
     // Step 4: Fill Previous Policy Details
     await this.previousPolicyHandler.fillPreviousPolicyDetails(data);
     
-    // Step 5: Fill Customer Details
-    await this.customerHandler.fillCustomerDetails(data);
+    // Step 5: Fill Customer/Company Details based on proposer type
+    if (data.proposerType && data.proposerType.toUpperCase() === 'CORPORATE') {
+      // Fill Company Details for corporate proposer
+      if (await this.companyHandler.isCompanyDetailsVisible()) {
+        await this.companyHandler.fillCompanyDetails(data);
+      }
+    } else {
+      // Fill Customer Details for individual proposer
+      await this.customerHandler.fillCustomerDetails(data);
+    }
     
     // Step 6: Fill Vehicle Details
     await this.vehicleHandler.fillVehicleDetails(data);

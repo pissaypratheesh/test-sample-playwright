@@ -20,6 +20,21 @@ class BaseRenewalPage {
   async selectMuiOption(selectLocator, optionText, opts = {}) {
     const page = this.page;
     
+    // First check if the option is already selected
+    const currentValue = await page.locator(selectLocator).textContent().catch(() => '');
+    console.log(`🔍 [BaseRenewalPage] Current selected value: "${currentValue}"`);
+    
+    const normalize = (s) => (s || '').trim();
+    const normalizeLoose = (s) => (s || '').replace(/\s+/g, '').toLowerCase();
+    
+    // Check if already selected (exact match or contains)
+    if (normalize(currentValue) === normalize(optionText) || 
+        normalize(currentValue).includes(normalize(optionText)) ||
+        normalizeLoose(currentValue) === normalizeLoose(optionText)) {
+      console.log(`✅ [BaseRenewalPage] Option "${optionText}" is already selected`);
+      return;
+    }
+    
     try {
       // Add timeout to the click operation to prevent hanging
       await page.locator(selectLocator).click({ timeout: 2000 });
@@ -32,9 +47,6 @@ class BaseRenewalPage {
     await list.waitFor({ state: 'visible', timeout: 10000 });
     const options = list.locator('li[role="option"]');
     const count = await options.count();
-    
-    const normalize = (s) => (s || '').trim();
-    const normalizeLoose = (s) => (s || '').replace(/\s+/g, '').toLowerCase();
     const toNumeric = (s) => {
       const m = (s || '').match(/\d+/);
       return m ? m[0] : null;
@@ -192,46 +204,143 @@ class BaseRenewalPage {
    * @param {RegExp} labelRegex - Regex to find the label
    */
   async toggleYesNearLabel(labelRegex) {
+    console.log(`🔍 [BaseRenewalPage] toggleYesNearLabel called with regex: ${labelRegex}`);
     const page = this.page;
-    const label = page.getByText(labelRegex).first();
-    await label.scrollIntoViewIfNeeded().catch(() => {});
-    const container = label.locator('xpath=ancestor::*[self::div or self::*][1]');
+    
+    try {
+      // Debug: Check current page state
+      const currentUrl = page.url();
+      const pageTitle = await page.title();
+      console.log(`🔍 [BaseRenewalPage] Current URL: ${currentUrl}`);
+      console.log(`🔍 [BaseRenewalPage] Current Title: ${pageTitle}`);
+      
+      // Find the label
+      console.log(`🔍 [BaseRenewalPage] Looking for label with regex: ${labelRegex}`);
+      const label = page.getByText(labelRegex).first();
+      const labelVisible = await label.isVisible().catch(() => false);
+      console.log(`🔍 [BaseRenewalPage] Label visible: ${labelVisible}`);
+      
+      if (!labelVisible) {
+        console.log(`⚠️ [BaseRenewalPage] Label not found with regex: ${labelRegex}`);
+        
+        // Try alternative approaches
+        console.log(`🔍 [BaseRenewalPage] Trying alternative label searches...`);
+        const altPatterns = [
+          labelRegex.source, // Use the regex source as string
+          labelRegex.source.replace(/\\s\*/g, ' '), // Replace \s* with space
+          labelRegex.source.replace(/\\s\+/g, ' '), // Replace \s+ with space
+        ];
+        
+        for (const pattern of altPatterns) {
+          try {
+            const altLabel = page.getByText(pattern).first();
+            const altVisible = await altLabel.isVisible().catch(() => false);
+            console.log(`🔍 [BaseRenewalPage] Alternative pattern "${pattern}" visible: ${altVisible}`);
+            if (altVisible) {
+              console.log(`🔍 [BaseRenewalPage] Found label with alternative pattern: ${pattern}`);
+              await altLabel.scrollIntoViewIfNeeded().catch(() => {});
+              const container = altLabel.locator('xpath=ancestor::*[self::div or self::*][1]');
+              await this.tryToggleMethods(container, pattern);
+              return;
+            }
+          } catch (e) {
+            console.log(`🔍 [BaseRenewalPage] Error with alternative pattern "${pattern}": ${e.message}`);
+          }
+        }
+        
+        throw new Error(`Label not found with regex: ${labelRegex}`);
+      }
+      
+      console.log(`🔍 [BaseRenewalPage] Found label, scrolling into view...`);
+      await label.scrollIntoViewIfNeeded().catch(() => {});
+      const container = label.locator('xpath=ancestor::*[self::div or self::*][1]');
+      console.log(`🔍 [BaseRenewalPage] Container found, trying toggle methods...`);
+      
+      await this.tryToggleMethods(container, labelRegex.source);
+      
+    } catch (e) {
+      console.log(`❌ [BaseRenewalPage] Error in toggleYesNearLabel: ${e.message}`);
+      throw e;
+    }
+  }
+  
+  /**
+   * Try different toggle methods on a container
+   * @param {Object} container - The container element
+   * @param {string} labelText - The label text for debugging
+   */
+  async tryToggleMethods(container, labelText) {
+    console.log(`🔍 [BaseRenewalPage] Trying toggle methods for: ${labelText}`);
     
     // Try explicit Yes button
+    console.log(`🔍 [BaseRenewalPage] Trying Yes button...`);
     const yesBtn = container.getByRole('button', { name: /yes/i }).first();
-    if (await yesBtn.isVisible().catch(() => false)) {
+    const yesBtnVisible = await yesBtn.isVisible().catch(() => false);
+    console.log(`🔍 [BaseRenewalPage] Yes button visible: ${yesBtnVisible}`);
+    
+    if (yesBtnVisible) {
       const ariaPressed = await yesBtn.getAttribute('aria-pressed').catch(() => null);
+      console.log(`🔍 [BaseRenewalPage] Yes button aria-pressed: ${ariaPressed}`);
       if (ariaPressed !== 'true') {
+        console.log(`🔍 [BaseRenewalPage] Clicking Yes button...`);
         await yesBtn.click();
+        console.log(`🔍 [BaseRenewalPage] ✅ Yes button clicked successfully`);
+        return;
+      } else {
+        console.log(`🔍 [BaseRenewalPage] ✅ Yes button already pressed`);
+        return;
       }
-      return;
     }
 
     // Try switch/checkbox
+    console.log(`🔍 [BaseRenewalPage] Trying checkbox/switch...`);
     const checkbox = container.locator('input[type="checkbox"], [role="switch"]').first();
-    if (await checkbox.isVisible().catch(() => false)) {
+    const checkboxVisible = await checkbox.isVisible().catch(() => false);
+    console.log(`🔍 [BaseRenewalPage] Checkbox visible: ${checkboxVisible}`);
+    
+    if (checkboxVisible) {
       const isChecked = await checkbox.isChecked().catch(() => false);
+      console.log(`🔍 [BaseRenewalPage] Checkbox checked: ${isChecked}`);
       if (!isChecked) {
         const boxLabel = checkbox.locator('xpath=ancestor::label[1]');
-        if (await boxLabel.isVisible().catch(() => false)) {
+        const boxLabelVisible = await boxLabel.isVisible().catch(() => false);
+        console.log(`🔍 [BaseRenewalPage] Box label visible: ${boxLabelVisible}`);
+        if (boxLabelVisible) {
+          console.log(`🔍 [BaseRenewalPage] Clicking box label...`);
           await boxLabel.click();
         } else {
+          console.log(`🔍 [BaseRenewalPage] Clicking checkbox directly...`);
           await checkbox.click({ force: true });
         }
+        console.log(`🔍 [BaseRenewalPage] ✅ Checkbox clicked successfully`);
+        return;
+      } else {
+        console.log(`🔍 [BaseRenewalPage] ✅ Checkbox already checked`);
+        return;
       }
-      return;
     }
 
     // Try radio Yes
+    console.log(`🔍 [BaseRenewalPage] Trying radio Yes...`);
     const radioYes = container.locator('input[type="radio"][value="true"], input[type="radio"][aria-checked="true"]').first();
-    if (await radioYes.isVisible().catch(() => false)) {
+    const radioYesVisible = await radioYes.isVisible().catch(() => false);
+    console.log(`🔍 [BaseRenewalPage] Radio Yes visible: ${radioYesVisible}`);
+    
+    if (radioYesVisible) {
       const isChecked = await radioYes.isChecked().catch(() => false);
+      console.log(`🔍 [BaseRenewalPage] Radio Yes checked: ${isChecked}`);
       if (!isChecked) {
+        console.log(`🔍 [BaseRenewalPage] Clicking radio Yes...`);
         await radioYes.check({ force: true });
+        console.log(`🔍 [BaseRenewalPage] ✅ Radio Yes clicked successfully`);
+        return;
+      } else {
+        console.log(`🔍 [BaseRenewalPage] ✅ Radio Yes already checked`);
+        return;
       }
-      return;
     }
 
+    console.log(`❌ [BaseRenewalPage] No toggle method worked for: ${labelText}`);
     throw new Error('Unable to set Yes for toggle near label');
   }
 

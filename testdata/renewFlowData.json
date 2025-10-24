@@ -1,0 +1,57 @@
+{
+  "policyDetails": {
+    "policyType": "NON TMIBASL POLICY",
+    "policyStartDate": "23/10/2024",
+    "previousPolicyType": "TMIBASL POLICY",
+    "previousInsurerName": "Bajaj Allianz General Insurance Co. Ltd.",
+    "previousPolicyNo": "234EREWR",
+    "tpPolicyExpiryDate": "23/10/2025",
+    "proposerType": "INDIVIDUAL",
+    "claimMadeInExistingPolicy": "NO",
+    "policyPeriod": "1 OD + 1 TP",
+    "cbPolicyExpiryDate": "23/10/2025",
+    "transferCase": "NO",
+    "policyHolderType": "PRIVATE",
+    "policyPeriodOD": "1 OD + 1 TP"
+  },
+  "vehicleDetails": {
+    "vehicleChassisNo": "34534UIYIURYTISSY",
+    "engineNo": "34534ENGRUM340R63253635",
+    "make": "Ford",
+    "model": "ECOSPORT",
+    "variant": "1.0 ECOSPORT PTL TIT",
+    "fuelType": "PETROL",
+    "seatingCapacity": "5",
+    "cubicCapacity": "999",
+    "insuredDeclaredValue": "1000000",
+    "yearOfManufacture": "2024",
+    "registrationCity": "DELHI CENTRAL DL 06 (DL)",
+    "customerResidenceState": "DELHI",
+    "invoiceDate": "23/10/2024",
+    "registrationDate": "23/01/2025",
+    "isRegistrationNoSpecial": "NO",
+    "registrationNo": "",
+    "voluntaryExcess": "2500"
+  },
+  "additionalDiscounts": {
+    "ncbCarryForward": "NO",
+    "certifiedNcbPercent": "20",
+    "aaiMembership": "NO",
+    "handicapped": "NO",
+    "antiTheft": "NO",
+    "legalLiabilityEmployees": "5"
+  },
+  "optionalDetails": {
+    "electricalAccessoriesPrice": "",
+    "nonElectricalAccessoriesPrice": "",
+    "paCoverPaidDriver": "NO",
+    "legalLiabilityPaidDriver": "YES",
+    "imt23": "NO",
+    "llToUnnamedPassengers": "NO"
+  },
+  "lastYearAddOns": {
+    "returnToInvoice": "NO",
+    "engineProtector": "NO"
+  }
+}
+

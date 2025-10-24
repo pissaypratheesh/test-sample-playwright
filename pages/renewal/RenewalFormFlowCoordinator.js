@@ -34,10 +34,10 @@ class RenewalFormFlowCoordinator {
       // Step 1: Login and navigate to renewal form
       await this.loginHandler.performLoginAndNavigation(credentials);
       
-      // Step 2: Fill Policy & Vehicle Details and click BUY NOW on first quote
-      await this.executePolicyVehicleForm(policyVehicleData);
+      // Step 2: Fill Policy & Vehicle Details, Additional Details, and click BUY NOW
+      await this.executePolicyVehicleForm(policyVehicleData, additionalDetailsData);
       
-      // Step 3: Fill Proposal Details (Additional Details are handled in the quotation page)
+      // Step 3: Fill Proposal Details
       await this.executeProposalDetailsForm(proposalDetailsData);
       
       console.log('✅ Complete Renewal Form Flow executed successfully');
@@ -51,8 +51,9 @@ class RenewalFormFlowCoordinator {
   /**
    * Execute Policy & Vehicle Details Form
    * @param {Object} policyVehicleData - Data for Policy & Vehicle Details
+   * @param {Object} additionalDetailsData - Data for Additional Details
    */
-  async executePolicyVehicleForm(policyVehicleData) {
+  async executePolicyVehicleForm(policyVehicleData, additionalDetailsData) {
     console.log('📄 Executing Policy & Vehicle Details Form');
     
     try {
@@ -62,10 +63,27 @@ class RenewalFormFlowCoordinator {
       // Fill Policy & Vehicle Details form
       await this.policyVehiclePage.fillPolicyVehicleForm(policyVehicleData);
       
+      // Fill Additional Details & Discounts on the create policy page (before clicking Get Quotes)
+      console.log('🔍 [FlowCoordinator] Filling Additional Details on create policy page...');
+      console.log('🔍 [FlowCoordinator] Additional Details Data:', JSON.stringify(additionalDetailsData, null, 2));
+      
+      // Debug: Check page state before filling additional details
+      try {
+        const currentUrl = this.page.url();
+        const pageTitle = await this.page.title();
+        console.log(`🔍 [FlowCoordinator] Before Additional Details - URL: ${currentUrl}`);
+        console.log(`🔍 [FlowCoordinator] Before Additional Details - Title: ${pageTitle}`);
+      } catch (e) {
+        console.log(`🔍 [FlowCoordinator] Error checking page state: ${e.message}`);
+      }
+      
+      await this.additionalDetailsPage.fillAdditionalDetailsForm(additionalDetailsData);
+      console.log('🔍 [FlowCoordinator] ✅ Additional Details form filled successfully');
+      
       // Click Get Quotes to proceed to quotation page
       await this.policyVehiclePage.clickGetQuotes();
       
-      // Immediately click BUY NOW on first available quote (like original code)
+      // Click BUY NOW on first available quote
       console.log('🔍 [FlowCoordinator] Clicking BUY NOW on first available quote...');
       const newPage = await this.additionalDetailsPage.clickBuyNow();
       

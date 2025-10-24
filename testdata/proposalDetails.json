@@ -41,6 +41,10 @@
     "insuranceCompany": "TATA AIG General Insurance",
     "officeAddress": "Mumbai Office"
   },
+  "financierDetails": {
+    "agreementType": "Lease",
+    "financierName": "Bajaj Finance Ltd."
+  },
   "nomineeDetails": {
     "nomineeName": "Jane Doe",
     "nomineeAge": "35",
