@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const RenewPolicyPage = require('../pages/renewPolicy.js');
-const testData = require('../testdata/renewTatadata.json');
-const authData = require('../testdata/Auth.json');
+const testData = require('../testdata/policy/renewTatadata.json');
+const authData = require('../testdata/auth/Auth.json');
 
 test.describe('Debug Tests', () => {
   test('Debug Year of Manufacturing Dropdown', async ({ page }) => {

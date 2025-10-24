@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
-const DatePickerUtils = require('../pages/utils/DatePickerUtils');
-const NavigationUtils = require('../pages/utils/NavigationUtils');
-const creds = require('../testdata/Auth.json');
+const DatePickerUtils = require('../pages/utils/core/DatePickerUtils');
+const NavigationUtils = require('../pages/utils/navigation/NavigationUtils');
+const creds = require('../testdata/auth/Auth.json');
 
 test.describe('Material UI Date Picker - Comprehensive Testing', () => {
   let datePickerUtils;

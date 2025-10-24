@@ -1,6 +1,6 @@
 const { test } = require('@playwright/test');
 const { AuthPage } = require('../pages/AuthPage');
-const testdata = require('../testdata/Auth.json');
+const testdata = require('../testdata/auth/Auth.json');
 
 test('Login with valid credentials', async ({ page }) => {
   const loginPage = new AuthPage(page);

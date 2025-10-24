@@ -9,7 +9,7 @@ test('Verify proposal details filling functionality', async ({ page }) => {
   console.log('Starting proposal details filling test...');
   
   // Load the dummy data
-  const proposalData = require('../testdata/proposalDetails.json');
+  const proposalData = require('../testdata/proposal/proposalDetails.json');
   
   // Create a simple version of the fill function for testing
   const fillProposalDetails = async (data) => {

@@ -1,8 +1,8 @@
 const { test, expect } = require('@playwright/test');
 const { AuthPage } = require('../pages/AuthPage');
 const { PolicyIssuancePageWithToggles } = require('../pages/PolicyIssuancepagewithtoggles');
-const authData = require('../testdata/Auth.json');
-const testdata = require('../testdata/withtoggle.json');
+const authData = require('../testdata/auth/Auth.json');
+const testdata = require('../testdata/vehicle/withtoggle.json');
 
 // 1. Login using AuthPage
 // 2. Dashboard page should be open

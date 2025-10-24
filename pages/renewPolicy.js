@@ -395,7 +395,7 @@ class RenewPolicyPage {
         ]);
         
         // Load proposal details data
-        const proposalData = require('../testdata/proposalDetails.json');
+        const proposalData = require('../testdata/proposal/proposalDetails.json');
         console.log('Filling proposal details with dummy data...');
         
         // Fill proposal details form

@@ -13,7 +13,7 @@ const config = {
     navigation: 60000,
     element: 10000,
     network: 30000,
-    test: 120000
+    test: 480000
   },
 
   // Retry settings

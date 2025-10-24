@@ -1,5 +1,5 @@
 const { test } = require('@playwright/test');
-const authData = require('../testdata/Auth.json');
+const authData = require('../testdata/auth/Auth.json');
 const { AuthPage } = require('../pages/AuthPage');
 const { LogoutPage } = require('../pages/LogoutPage');
 

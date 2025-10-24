@@ -1,6 +1,6 @@
 const { expect } = require('@playwright/test');
 const { AuthPage } = require('./AuthPage');
-const authData = require('../testdata/Auth.json');
+const authData = require('../testdata/auth/Auth.json');
 
 class RenewPage {
   constructor(page) {

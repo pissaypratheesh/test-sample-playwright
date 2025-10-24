@@ -1,6 +1,6 @@
 const RenewPolicyPage = require('../pages/RenewPolicyPage');
-const testdata = require('../testdata/renewTatadata.json');
-const creds = require('../testdata/Auth.json');
+const testdata = require('../testdata/policy/renewTatadata.json');
+const creds = require('../testdata/auth/Auth.json');
 const { test, expect } = require('@playwright/test');
 
 test.describe('Date Picker Debug', () => {

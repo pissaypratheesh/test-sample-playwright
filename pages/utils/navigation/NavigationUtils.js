@@ -1,4 +1,4 @@
-const BasePage = require('./BasePage');
+const BasePage = require('../core/BasePage');
 
 /**
  * Navigation utilities for common navigation patterns

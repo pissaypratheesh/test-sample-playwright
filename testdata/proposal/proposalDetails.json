@@ -1,0 +1,60 @@
+{
+  "personalDetails": {
+    "salutation": "Mr.",
+    "firstName": "DSFDSFSD",
+    "middleName": "KUMAR",
+    "lastName": "SINGH",
+    "dateOfBirth": "01/01/1995",
+    "email": "sdfsd@sfds.com",
+    "mobileNo": "9834534534",
+    "alternateMobileNo": "9876543211",
+    "addressLine1": "123 Main Street",
+    "addressLine2": "Apartment 4B",
+    "landmark": "Near Metro Station",
+    "state": "DELHI",
+    "city": "NEW DELHI",
+    "pinCode": "110001",
+    "panNo": "ABCDE1234F",
+    "aadhaarNo": "123456789012",
+    "ckycNo": "CKYC123456789"
+  },
+  "aaMembershipDetails": {
+    "associationName": "The Western India Automobile Association",
+    "membershipNo": "AA123456789",
+    "validityMonth": "Dec",
+    "year": "2027"
+  },
+  "ncbCarryForwardDetails": {
+    "prevPolicyType": "Non TMIBASL Policy",
+    "make": "ford",
+    "model": "hybrid",
+    "variant": "Tata",
+    "yearOfManufacturer": "2024",
+    "chasisNo": "TYUI6788TYUI67899",
+    "engineNo": "678990TYYUII67899YUIIO",
+    "invoiceDate": "09/10/2025",
+    "registrationNo": "DL02TYU7878",
+    "previousPolicyNo": "TYI6789TYUI678989YUII789",
+    "ncbDocumentSubmitted": "yes"
+  },
+  "policyDetails": {
+    "policyPeriodFrom": "10/10/2025",
+    "policyPeriodTo": "09/10/2026",
+    "insuranceCompany": "Gujarat Insurance Fund",
+    "officeAddress": "orchid office line"
+  },
+  "nomineeDetails": {
+    "nomineeName": "Johnny",
+    "nomineeAge": "30",
+    "nomineeRelation": "daughter",
+    "nomineeGender": "female"
+  },
+  "paymentDetails": {
+    "paymentMode": "customer's cheque",
+    "dpName": "Ashutosh DP"
+  },
+  "actions": {
+    "clickProposalReview": true,
+    "submitProposal": false
+  }
+}

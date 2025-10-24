@@ -1,4 +1,4 @@
-const testdata = require('../testdata/Login_Data.json');
+const testdata = require('../testdata/auth/Auth.json');
 exports.LoginPage = class LoginPage {
   constructor(page) {
     this.page = page;

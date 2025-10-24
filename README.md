@@ -1,217 +1,109 @@
-# Playwright Test Automation - Reusable Structure
+# Playwright Test Automation Framework
 
-This project provides a clean, organized, and reusable structure for Playwright test automation, specifically designed for insurance policy renewal flows.
+Welcome to the Playwright Test Automation Framework! This project provides a clean, organized, and reusable structure for Playwright test automation, specifically designed for insurance policy renewal flows.
 
-## 🏗️ Project Structure
+## 📚 Documentation
 
-```
-├── pages/
-│   ├── utils/
-│   │   ├── BasePage.js          # Base utilities with common methods
-│   │   ├── FormUtils.js         # Form interaction utilities
-│   │   └── NavigationUtils.js   # Navigation utilities
-│   └── RenewPolicyPage.js       # Main page object (extends utilities)
-├── tests/
-│   └── renewTataClean.spec.js   # Clean test specifications
-├── testdata/
-│   ├── renewTatadata.json       # Renewal test data
-│   ├── Auth.json               # Authentication credentials
-│   └── proposalDetails.json    # Proposal details data
-├── config/
-│   └── testConfig.js           # Reusable configuration
-└── .playwright-mcp/            # Screenshots and debug files
-```
+All detailed documentation is organized in the `docs/` folder:
 
-## 🚀 Key Features
+### 🏗️ Project Documentation
+- **[Project Overview](docs/project-overview.md)** - Complete project structure, setup, and usage guide
+- **[Architecture](docs/architecture.md)** - Technical architecture and design patterns
+- **[Implementation Summary](docs/implementation-summary.md)** - Implementation details and patterns
 
-### 1. **Reusable Utility Classes**
-- **BasePage**: Common methods like `safeClick()`, `safeFill()`, `waitForElement()`
-- **FormUtils**: Form-specific interactions like `selectDropdownOption()`, `setDateOnInput()`
-- **NavigationUtils**: Navigation patterns like `login()`, `navigateToPolicyIssuance()`
+### 🛠️ Utilities Documentation
+- **[Utils Directory Structure](docs/utils-directory-structure.md)** - Complete guide to the organized utils folder structure
+- **[DatePicker Utilities](docs/datepicker-utilities.md)** - Comprehensive date picker utilities documentation
+- **[Date Picker Guide](docs/date-picker-guide.md)** - Detailed date picker usage guide
 
-### 2. **Modular Page Objects**
-- Extends utility classes for maximum reusability
-- Clean separation of concerns
-- Easy to maintain and extend
+## 🚀 Quick Start
 
-### 3. **Comprehensive Test Coverage**
-- Multiple test scenarios (renewal, new policy, validation)
-- Error handling tests
-- NCB selection variations
-- Form validation tests
+1. **Install Dependencies**
+   ```bash
+   npm install
+   ```
 
-### 4. **Configuration Management**
-- Centralized configuration in `testConfig.js`
-- Reusable field mappings
-- Timeout and retry settings
+2. **Run Tests**
+   ```bash
+   npx playwright test
+   ```
 
-## 🔧 Usage Examples
+3. **Run Specific Test**
+   ```bash
+   npx playwright test tests/completeE2E.spec.js
+   ```
 
-### Basic Renewal Flow
-```javascript
-const renewPolicyPage = new RenewPolicyPage(page);
-await renewPolicyPage.runRenewalFlow(testdata, creds, proposalDetails);
-```
+## 📁 Key Directories
 
-### New Policy Flow
-```javascript
-const renewPolicyPage = new RenewPolicyPage(page);
-await renewPolicyPage.runNewPolicyFlow(testdata, creds, proposalDetails);
-```
+- **`pages/`** - Page objects and utilities
+- **`tests/`** - Test specifications
+- **`testdata/`** - Test data files
+- **`config/`** - Configuration files
+- **`docs/`** - Documentation
 
-### Custom Form Filling
-```javascript
-const formUtils = new FormUtils(page);
-await formUtils.fillPolicyDetails(data);
-await formUtils.fillCustomerDetails(data);
-await formUtils.fillVehicleDetails(data);
-```
+## 🎯 Key Features
 
-### Navigation Utilities
-```javascript
-const navUtils = new NavigationUtils(page);
-await navUtils.navigateToLoginPage();
-await navUtils.login(creds);
-await navUtils.navigateToMenuItem('Policy Centre > Policy > Policy Issuance');
-```
+- **Modular Design** - Organized into logical, reusable components
+- **Comprehensive Utilities** - Extensive utility classes for common operations
+- **Date Picker Support** - Robust Material UI date picker handling
+- **E2E Flow Management** - Complete end-to-end test flow utilities
+- **Form Automation** - Advanced form interaction utilities
+- **Navigation Utilities** - Comprehensive navigation and menu handling
 
-## 🛠️ Utility Methods
+## 📋 Coding Standards
 
-### BasePage Methods
-- `waitForElement(locator, timeout)` - Wait for element to be visible
-- `safeClick(locator, retries)` - Click with retry mechanism
-- `safeFill(locator, text, retries)` - Fill with retry mechanism
-- `waitForPageLoad(urlPattern)` - Wait for page to load completely
+This project follows strict coding standards:
+- **File Length Limit**: Maximum 300 lines per file
+- **Modular Design**: Single responsibility principle
+- **Reusable Components**: DRY principle implementation
+- **Comprehensive Documentation**: JSDoc comments and README files
+- **Error Handling**: Robust error handling with retry mechanisms
 
-### FormUtils Methods
-- `selectDropdownOption(dropdownLocator, optionText)` - Select dropdown option
-- `setDateOnInput(inputLocator, dateStr)` - Set date with multiple strategies
-- `selectRadioOption(groupName, optionValue)` - Select radio button
-- `convertNcbToNumber(ncbStr)` - Convert NCB percentage to number
+## 🔧 Utilities Overview
 
-### NavigationUtils Methods
-- `navigateToLoginPage(baseUrl)` - Navigate to login page
-- `login(creds, captcha)` - Perform login
-- `navigateToPolicyIssuance()` - Navigate to policy issuance
-- `navigateToMenuItem(menuPath)` - Navigate to specific menu item
+### Core Utilities (`pages/utils/core/`)
+- **BasePage.js** - Foundation class with common utilities
+- **DatePickerUtils.js** - Main date picker orchestrator
+- **datepicker/** - Specialized date picker components
 
-## 🧪 Test Examples
+### Form Utilities (`pages/utils/forms/`)
+- **FormUtils.js** - General form interaction utilities
+- **PolicyDetailsUtils.js** - Policy details form utilities
+- **ProposalDetailsUtils.js** - Proposal details form utilities
 
-### 1. Complete E2E Renewal Flow
-```javascript
-test('Renew Tata Policy - Complete E2E Flow', async ({ page }) => {
-  const renewPolicyPage = new RenewPolicyPage(page);
-  await renewPolicyPage.runRenewalFlow(testdata, creds, proposalDetails);
-  
-  const isFormComplete = await renewPolicyPage.validateFormCompletion();
-  expect(isFormComplete).toBe(true);
-});
-```
+### Navigation Utilities (`pages/utils/navigation/`)
+- **NavigationUtils.js** - Navigation and menu utilities
 
-### 2. NCB Selection Testing
-```javascript
-test('NCB Selection - Different Values', async ({ page }) => {
-  const renewPolicyPage = new RenewPolicyPage(page);
-  const ncbValues = ['0', '20', '25', '35', '45', '50', '55', '65'];
-  
-  for (const ncbValue of ncbValues) {
-    const testData = { ...testdata, ncb: `${ncbValue}%` };
-    await renewPolicyPage.fillPolicyDetails(testData);
-    // Verify selection...
-  }
-});
-```
+### E2E Utilities (`pages/utils/e2e/`)
+- **E2ECoreUtils.js** - Core E2E flow functions
+- **E2EFlowUtils.js** - Main E2E orchestrator
+- **E2EValidationUtils.js** - E2E validation utilities
 
-### 3. Error Handling
-```javascript
-test('Error Handling - Invalid Data', async ({ page }) => {
-  const renewPolicyPage = new RenewPolicyPage(page);
-  const invalidData = { ...testdata, prevPolicyNo: 'INVALID123' };
-  
-  try {
-    await renewPolicyPage.runRenewalFlow(invalidData, creds);
-  } catch (error) {
-    expect(error.message).toBeDefined();
-  }
-});
-```
+## 📖 Getting Started
 
-## 🔍 Debugging Features
+For detailed information, please refer to the documentation in the `docs/` folder:
 
-### Screenshots
-```javascript
-await renewPolicyPage.takeFormScreenshot('before-renewal.png');
-await renewPolicyPage.takeFormScreenshot('after-renewal.png');
-```
+1. Start with **[Project Overview](docs/project-overview.md)** for complete setup
+2. Review **[Architecture](docs/architecture.md)** for technical details
+3. Check **[Utils Directory Structure](docs/utils-directory-structure.md)** for utilities guide
+4. See **[DatePicker Utilities](docs/datepicker-utilities.md)** for date picker usage
 
-### Form Validation
-```javascript
-const isFormComplete = await renewPolicyPage.validateFormCompletion();
-expect(isFormComplete).toBe(true);
-```
+## 🤝 Contributing
 
-## 📝 Configuration
+When contributing to this project:
+1. Follow the coding standards (300-line file limit)
+2. Maintain modular design principles
+3. Add comprehensive JSDoc comments
+4. Update relevant documentation
+5. Ensure all tests pass
 
-### Test Configuration
-```javascript
-const config = require('../config/testConfig');
+## 📞 Support
 
-// Use configuration values
-await page.waitForTimeout(config.timeouts.default);
-await renewPolicyPage.selectDropdownOption(dropdown, config.fieldMappings.oem[0]);
-```
+For questions or issues:
+1. Check the documentation in the `docs/` folder
+2. Review the code examples in test files
+3. Refer to the utility class documentation
 
-## 🚀 Running Tests
+---
 
-```bash
-# Run all tests
-npx playwright test
-
-# Run specific test file
-npx playwright test tests/renewTataClean.spec.js
-
-# Run with headed mode
-npx playwright test --headed
-
-# Run with debug mode
-npx playwright test --debug
-```
-
-## 🔧 Customization
-
-### Adding New Utility Methods
-1. Extend the appropriate utility class
-2. Add your method with proper error handling
-3. Update documentation
-
-### Adding New Test Scenarios
-1. Create new test in the spec file
-2. Use existing utility methods
-3. Add proper assertions and error handling
-
-### Adding New Page Objects
-1. Extend FormUtils or BasePage
-2. Implement page-specific methods
-3. Follow the established patterns
-
-## 📊 Benefits
-
-1. **Reusability**: Utility classes can be used across different test flows
-2. **Maintainability**: Clean separation of concerns makes updates easier
-3. **Reliability**: Built-in retry mechanisms and error handling
-4. **Scalability**: Easy to add new tests and page objects
-5. **Debugging**: Comprehensive logging and screenshot capabilities
-6. **Configuration**: Centralized settings for easy management
-
-## 🎯 Best Practices
-
-1. Always use utility methods instead of direct Playwright calls
-2. Implement proper error handling and retries
-3. Take screenshots at key points for debugging
-4. Use configuration values instead of hardcoded values
-5. Write descriptive test names and comments
-6. Keep test data separate from test logic
-7. Validate form completion before proceeding
-8. Use relative XPath locators for better stability
-
-This structure provides a solid foundation for building comprehensive test automation suites that are maintainable, reusable, and reliable.
+**Happy Testing! 🎉**

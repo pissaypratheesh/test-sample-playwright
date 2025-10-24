@@ -9,7 +9,7 @@ test('Verify proposal details filling - simple test', async ({ page }) => {
   console.log('Starting simple proposal details filling test...');
   
   // Load the dummy data
-  const proposalData = require('../testdata/proposalDetails.json');
+  const proposalData = require('../testdata/proposal/proposalDetails.json');
   
   // Wait for the proposal details section to be visible
   await page.waitForSelector('text=Proposer Details', { timeout: 10000 }).catch(() => {});
