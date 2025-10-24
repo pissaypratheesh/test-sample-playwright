@@ -37,7 +37,7 @@
   },
   "policyDetails": {
     "policyPeriodFrom": "18/10/2025",
-    "policyPeriodTo": "17/10/2026",
+    "policyPeriodTo": "18/10/2026",
     "insuranceCompany": "TATA AIG General Insurance",
     "officeAddress": "Mumbai Office"
   },
@@ -49,7 +49,7 @@
   },
   "paymentDetails": {
     "paymentMode": "Credit Card",
-    "dpName": "Default DP"
+    "dpName": "Ashutosh DP"
   },
   "actions": {
     "clickProposalReview": true,

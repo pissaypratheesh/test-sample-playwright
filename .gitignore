@@ -1,7 +1,9 @@
 # Node dependencies
 node_modules/
 node_modules.zip
-
+.playwright-mcp/
+*.png
+others/
 # Playwright
 playwright-report/
 playwright/.cache/

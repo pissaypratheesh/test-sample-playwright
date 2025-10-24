@@ -1202,6 +1202,20 @@ class RenewPolicyPage {
       
       console.log('Finished filling proposal details form');
       
+      // Click Proposal Preview button
+      try {
+        console.log('Clicking Proposal Preview button...');
+        const proposalPreviewButton = page.locator('button:has-text("Proposal Preview")');
+        if (await proposalPreviewButton.isVisible({ timeout: 5000 })) {
+          await proposalPreviewButton.click();
+          console.log('✅ Proposal Preview button clicked successfully');
+        } else {
+          console.log('Proposal Preview button not found');
+        }
+      } catch (e) {
+        console.log('Error clicking Proposal Preview button:', e.message);
+      }
+      
       // Print all filled form data for review
       console.log('\n=== FORM DATA REVIEW ===');
       console.log('Personal Details:');
