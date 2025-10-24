@@ -21,5 +21,7 @@
   "registrationDate": "01/01/2024",
   "registrationStateRto": "DL-06",
   "registrationSeries": "RAA",
-  "registrationNumber": "9999"
+  "registrationNumber": "9999",
+  "ncbLevel": "20",
+  "voluntaryExcess": "2500"
 }

@@ -85,9 +85,9 @@ class RenewPolicyPage {
       const regSeries = page.locator('input[placeholder="RAA"], input[aria-label="Registration Series"], input[name="REG_SERIES"]');
       const regNumber = page.locator('input[placeholder="5445"], input[aria-label="Registration Number"], input[name="REG_NUMBER"]');
 
-      const stateRtoVal = data.registrationStateRto || 'DL-06';
-      const seriesVal = data.registrationSeries || 'RAA';
-      const numberVal = data.registrationNumber || '9999';
+      const stateRtoVal = data.registrationStateRto;
+      const seriesVal = data.registrationSeries;
+      const numberVal = data.registrationNumber;
 
       if (await regStateRto.first().isVisible().catch(() => false)) {
         await regStateRto.first().fill(stateRtoVal);
@@ -117,8 +117,8 @@ class RenewPolicyPage {
       await page.locator('#divNCBValue').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
       // Select 20 in Entitled NCB% (try near-label then fallback by ID)
       const ncbSelected = await (async () => {
-        try { await this._selectDropdownNearLabel(/Entitled\s*NCB\s*%/i, '20', { numeric: true }); return true; } catch { /* fallthrough */ }
-        try { await this._selectMuiOption('#mui-component-select-NCBLevel', '20', { numeric: true }); return true; } catch { /* ignore */ }
+        try { await this._selectDropdownNearLabel(/Entitled\s*NCB\s*%/i, data.ncbLevel, { numeric: true }); return true; } catch { /* fallthrough */ }
+        try { await this._selectMuiOption('#mui-component-select-NCBLevel', data.ncbLevel, { numeric: true }); return true; } catch { /* ignore */ }
         return false;
       })();
 
@@ -126,8 +126,8 @@ class RenewPolicyPage {
       await this._toggleYesNearLabel(/Voluntary\s*Excess/i).catch(() => {});
       await page.locator('#divVoluntaryExcess').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
       const volSelected = await (async () => {
-        try { await this._selectDropdownNearLabel(/Voluntary\s*Excess/i, '2500', { numeric: true }); return true; } catch { /* fallthrough */ }
-        try { await this._selectMuiOption('#mui-component-select-VoluntaryExcess', '2500', { numeric: true }); return true; } catch { /* ignore */ }
+        try { await this._selectDropdownNearLabel(/Voluntary\s*Excess/i, data.voluntaryExcess, { numeric: true }); return true; } catch { /* fallthrough */ }
+        try { await this._selectMuiOption('#mui-component-select-VoluntaryExcess', data.voluntaryExcess, { numeric: true }); return true; } catch { /* ignore */ }
         return false;
       })();
 
