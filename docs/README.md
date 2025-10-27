@@ -38,12 +38,14 @@ pages/renewal/
 
 ### Page 3: Proposal Details
 - **Personal Details**: Complete personal information
+  - **Individual**: Name, Date of Birth, Gender, etc.
+  - **Corporate**: Company details, authorized signatory details, **Date of Incorporation**
 - **Address Information**: Full address with state, city, pincode
 - **Identity Documents**: PAN, Aadhaar, EI account number
 - **AA Membership Details**: Association membership information
 - **NCB Carry Forward Details**: Previous vehicle and policy details
 - **Policy Details**: Policy period and insurance company
-- **Nominee Details**: Nominee information
+- **Nominee Details**: Nominee information (conditional - only for Individual proposers)
 - **Payment Details**: Payment mode and DP information
 
 ## 🔧 Key Components
@@ -214,8 +216,15 @@ The system handles various form variations based on user selections:
 - **1 OD + 1 TP (Comprehensive)**: Shows all fields
 
 ### Proposer Type Variations
-- **Individual**: Shows personal details fields
-- **Corporate**: Shows corporate fields (company name, GST, etc.)
+- **Individual**: 
+  - Shows personal details fields
+  - Date of Birth field
+  - Nominee Details section
+- **Corporate**: 
+  - Shows corporate fields (company name, GST, etc.)
+  - **Date of Incorporation** field (instead of Date of Birth)
+  - Conditional Nominee Details (may not always be present)
+  - Additional company-specific fields
 
 ### Dynamic Section Variations
 - **NCB Carry Forward**: Appears when NCB level is selected
@@ -305,6 +314,21 @@ Comprehensive validation at multiple levels:
 - **Previous Performance**: ~2.6 minutes for complete end-to-end test
 - **Current Performance**: ~2.1 minutes for complete end-to-end test
 - **Improvement**: ~19% faster execution time
+
+#### 5. Corporate Proposer Support (Latest - December 2024)
+- **Date of Incorporation**: Added support for corporate proposer date field
+  - Field detection using multiple strategies
+  - DOM tree traversal for robust field identification
+  - Automatic fallback mechanisms
+- **Nominee Details**: Enhanced to handle conditional section visibility
+  - Graceful skipping when section is not present
+  - Comprehensive logging for debugging
+- **NCB Date Validation**: Fixed NCB certificate date requirements
+  - Dates must be within last 3 years
+  - Updated test data to meet validation rules
+- **Wait Times**: Adjusted for manual verification
+  - 15 seconds wait before Proposal Preview click
+  - Allows verification of field filling correctness
 
 ### Performance Monitoring
 
@@ -401,3 +425,13 @@ generateRandomVin() {
 6. **Test Variations**: Test different OEM and cover combinations
 
 This modular architecture provides a robust, maintainable, and extensible foundation for handling complex insurance renewal forms with dynamic variations.
+
+## 📜 Recent Changes
+
+For detailed information about the latest changes made to the renewal form system, please refer to:
+- **[CHANGELOG_LATEST.md](./CHANGELOG_LATEST.md)** - Detailed changelog of recent updates
+- Recent updates include:
+  - Corporate Proposer Date of Incorporation support
+  - Enhanced Nominee Details handling
+  - NCB certificate date validation fixes
+  - Improved field detection with DOM tree traversal
