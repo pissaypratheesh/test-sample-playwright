@@ -1,0 +1,25 @@
+{
+  "oem": "Ford",
+  "proposerType": "Individual",
+  "vehicleCover": "TP",
+  "salutation": "Mr.",
+  "firstName": "JOHN",
+  "email": "john.doe@example.com",
+  "mobile": "9876543210",
+  "vin": "1HGBH41JXMN109186",
+  "engineNo": "ENG123456789012345",
+  "make": "Ford",
+  "model": "ECOSPORT",
+  "variant": "1.0 ECOSPORT PTL TIT",
+  "year": "2024",
+  "registrationCity": "DELHI CENTRAL DL 06 (DL)",
+  "customerState": "DELHI",
+  "invoiceDate": "01/01/2024",
+  "registrationDate": "",
+  "registrationStateRto": "DL-06",
+  "registrationSeries": "RAA",
+  "registrationNumber": "9999",
+  "ncbLevel": "20",
+  "voluntaryExcess": "2500"
+}
+

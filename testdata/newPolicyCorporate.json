@@ -1,0 +1,126 @@
+{
+  "policyDetails": {
+    "policyType": "NON TMIBASL POLICY",
+    "proposerType": "CORPORATE",
+    "policyPeriod": "TP",
+    "claimMadeInExistingPolicy": "NO",
+    "transferCase": "NO",
+    "policyHolderType": "PRIVATE"
+  },
+  "financierDetails": {
+    "agreementType": "Lease",
+    "financierName": "Bajaj Finance Ltd."
+  },
+  "companyDetails": {
+    "companySalutation": "M/S",
+    "companyName": "BINARY CORPORATE",
+    "companyContactNo": "8743534239",
+    "email": "EMAIL@EMAIL.COM",
+    "companyLandlineNo": "",
+    "companyAddress": "123 Corporate Street"
+  },
+  "personalDetails": {
+    "salutation": "MS.",
+    "firstName": "BINARY",
+    "middleName": "CORPORATE",
+    "lastName": "LIMITED",
+    "dateOfBirth": "01/01/1980",
+    "dateOfIncorporation": "26/10/2020",
+    "email": "EMAIL@EMAIL.COM",
+    "mobileNo": "8743534239",
+    "alternateMobileNo": "9876543211",
+    "addressLine1": "123 Corporate Street",
+    "addressLine2": "Business District",
+    "landmark": "Near Corporate Mall",
+    "state": "DELHI",
+    "city": "NEW DELHI",
+    "pinCode": "110001",
+    "panNo": "ABCDE1234F",
+    "aadhaarNo": "123456789012",
+    "eiAccountNo": ""
+  },
+  "vehicleDetails": {
+    "vehicleChassisNo": "1HGBH41JXMN109186",
+    "engineNo": "ENG123456789012345",
+    "make": "Ford",
+    "model": "ECOSPORT",
+    "variant": "1.0 ECOSPORT PTL TIT",
+    "fuelType": "PETROL",
+    "seatingCapacity": "5",
+    "cubicCapacity": "999",
+    "insuredDeclaredValue": "1000000",
+    "yearOfManufacture": "2024",
+    "registrationCity": "DELHI CENTRAL DL 06 (DL)",
+    "customerResidenceState": "DELHI",
+    "invoiceDate": "01/01/2024",
+    "registrationDate": "01/01/2024",
+    "isRegistrationNoSpecial": "NO",
+    "registrationNo": "",
+    "voluntaryExcess": "2500",
+    "registrationStateRto": "DL-06",
+    "registrationSeries": "RAA",
+    "registrationNumber": "9999"
+  },
+  "additionalDiscounts": {
+    "ncbCarryForward": "YES",
+    "certifiedNcbPercent": "20",
+    "entitledNcbPercent": "20",
+    "voluntaryExcess": "YES",
+    "voluntaryExcessAmount": "2500",
+    "aaiMembership": "YES",
+    "handicapped": "YES",
+    "antiTheft": "YES",
+    "legalLiabilityEmployees": "5"
+  },
+  "optionalDetails": {
+    "electricalAccessoriesPrice": "",
+    "nonElectricalAccessoriesPrice": "",
+    "paCoverPaidDriver": "NO",
+    "legalLiabilityPaidDriver": "YES",
+    "imt23": "NO",
+    "llToUnnamedPassengers": "NO"
+  },
+  "lastYearAddOns": {
+    "returnToInvoice": "NO",
+    "engineProtector": "NO"
+  },
+  "aaMembershipDetails": {
+    "associationName": "Automobile Association of Eastern India",
+    "membershipNo": "56786788TYUTIU67",
+    "validityMonth": "Jun",
+    "year": "2027"
+  },
+  "ncbCarryForwardDetails": {
+    "make": "Ford",
+    "model": "FIGO",
+    "variant": "1.0 FIGO PTL TIT",
+    "yearOfManufacturer": "2020",
+    "chasisNo": "34534UIYIURYTISSY",
+    "engineNo": "34534ENGRUM340R63253635",
+    "invoiceDate": "23/10/2024",
+    "registrationNo": "DL09RAA5445",
+    "previousPolicyNo": "234EREWR",
+    "ncbDocumentSubmitted": true,
+    "policyPeriodFrom": "23/10/2024",
+    "policyPeriodTo": "22/10/2025",
+    "insuranceCompany": "Bajaj Allianz General Insurance Co. Ltd.",
+    "officeAddress": "123 Corporate Policy Office",
+    "ncbCertificateEffectiveDate": "15/01/2025",
+    "ncbEntitled": "20"
+  },
+  "nomineeDetails": {
+    "nomineeName": "Corporate Nominee",
+    "nomineeRelation": "Father",
+    "nomineeGender": "Male",
+    "nomineeAge": "45"
+  },
+  "paymentDetails": {
+    "paymentMode": "Credit Card",
+    "dpName": "Ashutosh DP"
+  },
+  "actions": {
+    "clickProposalReview": true,
+    "submitProposal": false
+  }
+}
+

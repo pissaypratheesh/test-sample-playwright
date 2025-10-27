@@ -1,18 +1,23 @@
 /**
  * Login and Navigation Handler
- * Handles login and navigation to renewal form
+ * Handles login and navigation to policy forms (New Policy or Renewal)
  */
 class LoginNavigationHandler {
   constructor(page) {
     this.page = page;
+    this.flowType = 'renew'; // Default to renewal
   }
 
   /**
-   * Perform login and navigation to renewal form
+   * Perform login and navigation to policy form
    * @param {Object} credentials - Login credentials
+   * @param {string} flowType - 'new' for new policy, 'renew' for renewal (default)
    */
-  async performLoginAndNavigation(credentials) {
+  async performLoginAndNavigation(credentials, flowType = 'renew') {
     console.log('🔐 Performing login and navigation...');
+    
+    // Store flow type for navigation
+    this.flowType = flowType;
     
     // Navigate to login page
     await this.page.goto('https://uatlifekaplan.tmibasl.in/');
@@ -31,7 +36,8 @@ class LoginNavigationHandler {
   }
 
   /**
-   * Navigate to Policy Centre and renewal form
+   * Navigate to Policy Centre and policy form
+   * Supports both 'new' and 'renew' flows
    */
   async navigateToPolicyCentre() {
     await this.page.getByRole('button', { name: /menu/i }).click();
@@ -39,9 +45,21 @@ class LoginNavigationHandler {
     await this.page.getByText(/^Policy$/).click();
     await this.page.getByText('Policy Issuance').click();
     
-    // Click Renew button
-    await this.page.getByRole('button', { name: /renew/i }).click();
-    await this.page.getByRole('button', { name: /NON TMIBASL POLICY/i }).click();
+    // After clicking "Policy Issuance", we see the form with New/Renew toggle
+    // By default, "New" is already selected (pressed=true)
+    // For "renew" flow, we need to click the "Renew" button
+    if (this.flowType === 'new') {
+      console.log('📄 Form is already in NEW Policy mode (default), no action needed');
+      await this.page.waitForTimeout(2000);
+    } else {
+      console.log('🔄 Switching to RENEWAL Policy...');
+      // Use specific selector for "Renew" button (value="R")
+      await this.page.locator('button[value="R"]').click();
+      await this.page.waitForTimeout(2000);
+      
+      // Click NON TMIBASL POLICY
+      await this.page.getByRole('button', { name: /NON TMIBASL POLICY/i }).click();
+    }
   }
 
   /**

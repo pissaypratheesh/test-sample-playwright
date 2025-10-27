@@ -16,6 +16,17 @@ class PreviousPolicyHandler extends BaseRenewalPage {
   async fillPreviousPolicyDetails(data) {
     console.log('Filling Previous Policy Details...');
     
+    // Check if this is a "New" policy by checking if previous policy fields exist
+    // For "New" policy, fields like "Previous Policy No" don't exist on the form
+    const hasPreviousPolicyField = await this.page.getByLabel('Previous Policy No').isVisible({ timeout: 1000 }).catch(() => false);
+    
+    if (!hasPreviousPolicyField) {
+      console.log('⚠️ This is a NEW policy - Previous Policy fields not found, skipping...');
+      return;
+    } else {
+      console.log('ℹ️ This is a RENEWAL policy - Previous Policy fields found, filling...');
+    }
+    
     // Previous Policy Number
     await this.fillInput(this.page.getByLabel('Previous Policy No'), data.prevPolicyNo);
     

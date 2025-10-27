@@ -55,9 +55,11 @@ class RenewalFormSystem {
    * @param {Object} additionalDetailsData - Custom Additional Details data
    * @param {Object} proposalDetailsData - Custom Proposal Details data
    * @param {Object} credentials - Login credentials
+   * @param {string} flowType - 'new' for new policy, 'renew' for renewal (default)
    */
-  async executeWithCustomData(policyVehicleData, additionalDetailsData, proposalDetailsData, credentials) {
-    console.log('🚀 Executing renewal form with custom data');
+  async executeWithCustomData(policyVehicleData, additionalDetailsData, proposalDetailsData, credentials, flowType = 'renew') {
+    const flowName = flowType === 'new' ? 'new policy' : 'renewal';
+    console.log(`🚀 Executing ${flowName} form with custom data`);
     
     // Process data through data managers
     const processedData = {
@@ -71,10 +73,11 @@ class RenewalFormSystem {
       processedData.policyVehicle,
       processedData.additionalDetails,
       processedData.proposalDetails,
-      credentials
+      credentials,
+      flowType
     );
 
-    console.log('✅ Renewal form completed successfully with custom data');
+    console.log(`✅ ${flowName} form completed successfully with custom data`);
   }
 
   /**

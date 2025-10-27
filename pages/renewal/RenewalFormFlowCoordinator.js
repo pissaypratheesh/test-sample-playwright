@@ -26,13 +26,15 @@ class RenewalFormFlowCoordinator {
    * @param {Object} additionalDetailsData - Data for Additional Details
    * @param {Object} proposalDetailsData - Data for Proposal Details
    * @param {Object} credentials - Login credentials
+   * @param {string} flowType - 'new' for new policy, 'renew' for renewal (default)
    */
-  async executeCompleteFlow(policyVehicleData, additionalDetailsData, proposalDetailsData, credentials) {
-    console.log('🚀 Starting Complete Renewal Form Flow');
+  async executeCompleteFlow(policyVehicleData, additionalDetailsData, proposalDetailsData, credentials, flowType = 'renew') {
+    const flowName = flowType === 'new' ? 'New Policy' : 'Renewal';
+    console.log(`🚀 Starting Complete ${flowName} Form Flow`);
     
     try {
-      // Step 1: Login and navigate to renewal form
-      await this.loginHandler.performLoginAndNavigation(credentials);
+      // Step 1: Login and navigate to policy form
+      await this.loginHandler.performLoginAndNavigation(credentials, flowType);
       
       // Step 2: Fill Policy & Vehicle Details, Additional Details, and click BUY NOW
       await this.executePolicyVehicleForm(policyVehicleData, additionalDetailsData);
@@ -40,10 +42,10 @@ class RenewalFormFlowCoordinator {
       // Step 3: Fill Proposal Details
       await this.executeProposalDetailsForm(proposalDetailsData);
       
-      console.log('✅ Complete Renewal Form Flow executed successfully');
+      console.log(`✅ Complete ${flowName} Form Flow executed successfully`);
       
     } catch (error) {
-      console.error('❌ Error in Complete Renewal Form Flow:', error.message);
+      console.error(`❌ Error in Complete ${flowName} Form Flow:`, error.message);
       throw error;
     }
   }
@@ -217,13 +219,14 @@ class RenewalFormFlowCoordinator {
    * @param {Object} additionalDetailsData - Data for Additional Details
    * @param {Object} proposalDetailsData - Data for Proposal Details
    * @param {Object} credentials - Login credentials
+   * @param {string} flowType - 'new' for new policy, 'renew' for renewal (default)
    */
-  async executeFlowWithValidation(policyVehicleData, additionalDetailsData, proposalDetailsData, credentials) {
+  async executeFlowWithValidation(policyVehicleData, additionalDetailsData, proposalDetailsData, credentials, flowType = 'renew') {
     // Validate data first
     this.validationManager.validateCompleteFormData(policyVehicleData, additionalDetailsData, proposalDetailsData, credentials);
     
     // Execute the flow
-    await this.executeCompleteFlow(policyVehicleData, additionalDetailsData, proposalDetailsData, credentials);
+    await this.executeCompleteFlow(policyVehicleData, additionalDetailsData, proposalDetailsData, credentials, flowType);
   }
 
   /**

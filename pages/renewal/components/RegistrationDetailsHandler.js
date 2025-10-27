@@ -16,13 +16,26 @@ class RegistrationDetailsHandler extends BaseRenewalPage {
   async fillRegistrationDetails(data) {
     console.log('Filling Registration Details...');
     
-    // Invoice Date
-    await this.setDateOnInput(this.page.locator('input[name="InvoiceDate"]'), data.invoiceDate);
+    // Check if this is a "New" policy by checking if Invoice Date field is enabled
+    // For "New" policy, Invoice Date is disabled/hardcoded
+    const invoiceDateInput = this.page.locator('input[name="InvoiceDate"]');
+    const invoiceDateExists = await invoiceDateInput.isVisible({ timeout: 1000 }).catch(() => false);
+    const isInvoiceDateDisabled = invoiceDateExists ? await invoiceDateInput.isDisabled().catch(() => true) : true;
     
-    // Registration Date
-    await this.setDateOnInput(this.page.locator('input[name="RegistrationDate"]'), data.registrationDate);
+    if (invoiceDateExists && isInvoiceDateDisabled) {
+      console.log('ℹ️ NEW policy detected - Invoice Date is disabled/hardcoded, skipping date filling...');
+    } else if (invoiceDateExists && !isInvoiceDateDisabled) {
+      // RENEWAL flow - fill Invoice Date and Registration Date
+      console.log('ℹ️ RENEWAL policy detected - filling Invoice Date and Registration Date...');
+      await this.setDateOnInput(invoiceDateInput, data.invoiceDate);
+      
+      const regDateInput = this.page.locator('input[name="RegistrationDate"]');
+      if (await regDateInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await this.setDateOnInput(regDateInput, data.registrationDate);
+      }
+    }
     
-    // Registration Number (split fields)
+    // Registration Number (split fields) - fill for both NEW and RENEWAL
     await this.fillRegistrationNumber(data);
     
     console.log('✅ Registration Details filled');
