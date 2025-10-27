@@ -75,10 +75,11 @@ class ProposalDetailsPage extends BaseRenewalPage {
     // Fill Payment Details section
     await this.fillPaymentDetailsSection(data.paymentDetails);
     
-    // Wait 7 seconds before clicking Proposal Preview to allow manual verification
-    console.log('⏳ Waiting 7 seconds for manual verification of filled form...');
-    await this.page.waitForTimeout(7000);
-    console.log('✅ 7 seconds wait completed, proceeding to click Proposal Preview...');
+    // Wait 15 seconds before clicking Proposal Preview to allow manual verification
+    console.log('⏳ Waiting 15 seconds for manual verification of filled form...');
+    console.log('🔍 Please verify: Date of Incorporation, all personal details, and other form fields...');
+    await this.page.waitForTimeout(15000);
+    console.log('✅ 15 seconds wait completed, proceeding to click Proposal Preview...');
     
     // Click Proposal Preview button
     await this.clickProposalPreview();
@@ -119,8 +120,13 @@ class ProposalDetailsPage extends BaseRenewalPage {
       // Names
       await this.fillNameFields(personalDetails);
       
-      // Date of Birth
-      await this.fillDateOfBirth(personalDetails.dateOfBirth);
+      // Date of Birth or Date of Incorporation
+      // Check if Date of Incorporation exists (for corporate) otherwise use Date of Birth
+      if (personalDetails.dateOfIncorporation) {
+        await this.fillDateOfIncorporation(personalDetails.dateOfIncorporation);
+      } else {
+        await this.fillDateOfBirth(personalDetails.dateOfBirth);
+      }
       
       // Contact Information
       await this.fillContactInformation(personalDetails);
@@ -220,6 +226,135 @@ class ProposalDetailsPage extends BaseRenewalPage {
       }
     } catch (e) {
       console.log('Error filling date of birth:', e.message);
+    }
+  }
+
+  /**
+   * Fill date of incorporation using DatePickerCore
+   * @param {string} dateOfIncorporation - Date of incorporation in DD/MM/YYYY format
+   */
+  async fillDateOfIncorporation(dateOfIncorporation) {
+    try {
+      console.log('🔍 [INC] Filling date of incorporation using DatePickerCore...');
+      console.log(`🔍 [INC] Date to set: ${dateOfIncorporation}`);
+      
+      // Try multiple selectors for Date of Incorporation
+      const selectors = [
+        'input[name="DATE_OF_INCORPORATION"]',
+        'input[name="DATE_OF_INCORP"]',
+        'input[name="INCORPORATION_DATE"]'
+      ];
+      
+      let dateOfIncInput = null;
+      
+      // First try finding by name attribute
+      for (const selector of selectors) {
+        console.log(`🔍 [INC] Trying selector: ${selector}`);
+        const input = this.page.locator(selector);
+        const isVisible = await input.first().isVisible({ timeout: 2000 }).catch(() => false);
+        console.log(`🔍 [INC] ${selector} visible: ${isVisible}`);
+        
+        if (isVisible) {
+          dateOfIncInput = input.first();
+          console.log(`✅ [INC] Found input using selector: ${selector}`);
+          break;
+        }
+      }
+      
+      // If not found by name, try by placeholder with parent label check
+      if (!dateOfIncInput) {
+        console.log(`🔍 [INC] Trying to find by placeholder with parent label...`);
+        const allDateInputs = this.page.locator('input[placeholder*="DD/MM/YYYY"]');
+        const count = await allDateInputs.count();
+        console.log(`🔍 [INC] Found ${count} inputs with DD/MM/YYYY placeholder`);
+        
+        for (let i = 0; i < count; i++) {
+          const input = allDateInputs.nth(i);
+          const isVisible = await input.isVisible({ timeout: 2000 }).catch(() => false);
+          
+          if (isVisible) {
+            // Check if parent contains "Incorporation" text
+            try {
+              const parent = input.locator('xpath=ancestor::div[contains(@class, "MuiTextField") or contains(@class, "MuiFormControl")]');
+              const parentText = await parent.locator('text=/Incorporation/i').count();
+              
+              if (parentText > 0) {
+                dateOfIncInput = input;
+                console.log(`✅ [INC] Found input by placeholder with Incorporation label at index ${i}`);
+                break;
+              }
+            } catch (e) {
+              console.log(`🔍 [INC] Error checking parent for input ${i}: ${e.message}`);
+            }
+            
+            // Alternative: Check if nearby label contains "Incorporation"
+            try {
+              const nearbyText = await input.evaluate((el) => {
+                // Walk up the DOM tree to find labels
+                let text = '';
+                let current = el.parentElement;
+                
+                // Check up to 10 levels
+                for (let level = 0; level < 10 && current; level++) {
+                  if (current.textContent) {
+                    text += current.textContent + ' ';
+                  }
+                  
+                  // Also check for label elements
+                  const labels = current.querySelectorAll('label, span, p, div');
+                  labels.forEach(label => {
+                    if (label.textContent) {
+                      text += label.textContent + ' ';
+                    }
+                  });
+                  
+                  current = current.parentElement;
+                }
+                
+                return text;
+              });
+              
+              console.log(`🔍 [INC] Nearby text for input ${i}: ${nearbyText}`);
+              
+              // Check for incorporation text (case insensitive)
+              const lowerText = nearbyText.toLowerCase();
+              if (lowerText.includes('incorporation') || lowerText.includes('incorp') || lowerText.includes('incorpor')) {
+                dateOfIncInput = input;
+                console.log(`✅ [INC] Found input by nearby text containing 'Incorporation' at index ${i}`);
+                break;
+              }
+              
+              // Debug: log all text to help identify which field this is
+              console.log(`🔍 [INC] Input ${i} does not contain incorporation text`);
+            } catch (e) {
+              console.log(`🔍 [INC] Error checking nearby text for input ${i}: ${e.message}`);
+            }
+          }
+        }
+      }
+      
+      if (dateOfIncInput) {
+        console.log(`🔍 [INC] Setting Date of Incorporation to: ${dateOfIncorporation}`);
+        const success = await this.datePickerCore.setDateOnMaterialUIPicker(
+          dateOfIncInput, 
+          dateOfIncorporation,
+          { timeout: 10000 }
+        );
+        
+        if (success) {
+          const currentValue = await dateOfIncInput.inputValue();
+          console.log(`✅ [INC] Date of Incorporation set successfully: ${currentValue}`);
+        } else {
+          console.log('⚠️ [INC] DatePickerCore failed, trying fallback method...');
+          await this.setDateOnInput(dateOfIncInput, dateOfIncorporation);
+          const currentValue = await dateOfIncInput.inputValue();
+          console.log(`✅ [INC] Date of Incorporation set using fallback: ${currentValue}`);
+        }
+      } else {
+        console.log('⚠️ [INC] Date of Incorporation input not found with any selector');
+      }
+    } catch (e) {
+      console.log(`⚠️ [INC] Error filling date of incorporation: ${e.message}`);
     }
   }
 
@@ -779,14 +914,28 @@ class ProposalDetailsPage extends BaseRenewalPage {
     console.log('Filling Nominee Details section...');
     
     try {
+      // First check if nominee section exists on the page
+      const nomineeSectionHeading = this.page.locator('text=Nominee Details');
+      const isNomineeSectionVisible = await nomineeSectionHeading.isVisible({ timeout: 3000 }).catch(() => false);
+      
+      if (!isNomineeSectionVisible) {
+        console.log('⚠️ [NOMINEE] Nominee Details section not found on page, skipping...');
+        return;
+      }
+      
+      console.log('✅ [NOMINEE] Nominee Details section found, proceeding to fill...');
+      
       // Nominee Name
       try {
         const nomineeNameInput = this.page.locator('input[name="NomineeName"]');
         if (await nomineeNameInput.isVisible({ timeout: 2000 })) {
           await this.fillInput(nomineeNameInput, nomineeDetails.nomineeName);
+          console.log(`✅ [NOMINEE] Nominee Name filled: ${nomineeDetails.nomineeName}`);
+        } else {
+          console.log('⚠️ [NOMINEE] Nominee Name field not visible, skipping...');
         }
       } catch (e) {
-        console.log('Could not fill Nominee Name:', e.message);
+        console.log('⚠️ [NOMINEE] Could not fill Nominee Name:', e.message);
       }
       
       // Nominee Age
@@ -794,29 +943,44 @@ class ProposalDetailsPage extends BaseRenewalPage {
         const nomineeAgeInput = this.page.locator('input[name="NomineeAge"]');
         if (await nomineeAgeInput.isVisible({ timeout: 2000 })) {
           await this.fillInput(nomineeAgeInput, nomineeDetails.nomineeAge);
+          console.log(`✅ [NOMINEE] Nominee Age filled: ${nomineeDetails.nomineeAge}`);
+        } else {
+          console.log('⚠️ [NOMINEE] Nominee Age field not visible, skipping...');
         }
       } catch (e) {
-        console.log('Could not fill Nominee Age:', e.message);
+        console.log('⚠️ [NOMINEE] Could not fill Nominee Age:', e.message);
       }
       
       // Nominee Relation
       try {
-        await this.selectMuiOption('#mui-component-select-NomineeRelation', nomineeDetails.nomineeRelation);
+        const nomineeRelationDropdown = this.page.locator('#mui-component-select-NomineeRelation');
+        if (await nomineeRelationDropdown.isVisible({ timeout: 2000 })) {
+          await this.selectMuiOption('#mui-component-select-NomineeRelation', nomineeDetails.nomineeRelation);
+          console.log(`✅ [NOMINEE] Nominee Relation selected: ${nomineeDetails.nomineeRelation}`);
+        } else {
+          console.log('⚠️ [NOMINEE] Nominee Relation dropdown not visible, skipping...');
+        }
       } catch (e) {
-        console.log('Could not fill Nominee Relation:', e.message);
+        console.log('⚠️ [NOMINEE] Could not select Nominee Relation:', e.message);
       }
       
       // Nominee Gender
       try {
-        await this.selectMuiOption('#mui-component-select-NomineeGender', nomineeDetails.nomineeGender);
+        const nomineeGenderDropdown = this.page.locator('#mui-component-select-NomineeGender');
+        if (await nomineeGenderDropdown.isVisible({ timeout: 2000 })) {
+          await this.selectMuiOption('#mui-component-select-NomineeGender', nomineeDetails.nomineeGender);
+          console.log(`✅ [NOMINEE] Nominee Gender selected: ${nomineeDetails.nomineeGender}`);
+        } else {
+          console.log('⚠️ [NOMINEE] Nominee Gender dropdown not visible, skipping...');
+        }
       } catch (e) {
-        console.log('Could not fill Nominee Gender:', e.message);
+        console.log('⚠️ [NOMINEE] Could not select Nominee Gender:', e.message);
       }
       
       console.log('✅ Nominee Details section filled');
       
     } catch (e) {
-      console.log('Error filling Nominee Details section:', e.message);
+      console.log('⚠️ [NOMINEE] Error filling Nominee Details section:', e.message);
     }
   }
 
@@ -908,10 +1072,10 @@ class ProposalDetailsPage extends BaseRenewalPage {
           console.log('Error waiting for navigation:', navError.message);
         }
         
-        // Wait for 7 seconds on the proposal preview page before exiting
-        console.log('⏳ Waiting 7 seconds on proposal preview page for manual verification...');
-        await this.page.waitForTimeout(7000);
-        console.log('✅ 7 seconds completed, exiting test...');
+        // Wait for 15 seconds on the proposal preview page before exiting
+        console.log('⏳ Waiting 15 seconds on proposal preview page for manual verification...');
+        await this.page.waitForTimeout(15000);
+        console.log('✅ 15 seconds completed, exiting test...');
         
       } else {
         console.log('Proposal Preview button not found');
