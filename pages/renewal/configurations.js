@@ -422,7 +422,7 @@ const TEST_DATA_TEMPLATES = {
     page2: {
       ncbLevel: '20',
       voluntaryExcess: '2500',
-      aaiMembership: false,
+      aaiMembership: true,
       handicappedDiscount: false,
       antiTheftDiscount: false
     },
@@ -525,7 +525,7 @@ const TEST_DATA_TEMPLATES = {
     page2: {
       ncbLevel: '35',
       voluntaryExcess: '2000',
-      aaiMembership: false,
+      aaiMembership: true,
       handicappedDiscount: false,
       antiTheftDiscount: false
     },

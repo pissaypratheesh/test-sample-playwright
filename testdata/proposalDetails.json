@@ -33,7 +33,12 @@
     "invoiceDate": "15/01/2020",
     "registrationNo": "DL09RAA5445",
     "previousPolicyNo": "POL123456789",
-    "ncbDocumentSubmitted": true
+    "ncbDocumentSubmitted": true,
+    "insuranceCompany": "Bajaj Allianz General Insurance Co. Ltd.",
+    "officeAddress": "Mumbai Office",
+    "policyPeriodFrom": "18/10/2024",
+    "policyPeriodTo": "17/10/2025",
+    "ncbCertificateEffectiveDate": "15/01/2025"
   },
   "policyDetails": {
     "policyPeriodFrom": "18/10/2025",
