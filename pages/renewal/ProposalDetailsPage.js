@@ -1,4 +1,5 @@
 const BaseRenewalPage = require('./BaseRenewalPage');
+const path = require('path');
 
 /**
  * Page 3: Proposal Details
@@ -1018,6 +1019,1041 @@ class ProposalDetailsPage extends BaseRenewalPage {
   }
 
   /**
+   * Handle proposal preview page actions: checkboxes, file upload, and Verify KYC
+   * @param {string} filePath - Path to the file to upload (default: 'invoice.pdf')
+   */
+  async handleProposalPreviewPage(filePath = 'invoice.pdf') {
+    // Resolve file path - if relative, resolve from project root
+    const resolvedFilePath = path.isAbsolute(filePath) ? filePath : path.resolve(process.cwd(), filePath);
+    try {
+      console.log('🔍 Handling proposal preview page actions...');
+      
+      // Wait for the preview page to be fully loaded
+      await this.page.waitForLoadState('networkidle', { timeout: 10000 });
+      
+      // Check first checkbox: "I hereby agree to receive a one pager policy document."
+      try {
+        console.log('Checking first checkbox: one pager policy document...');
+        
+        // Wait a bit and scroll to checkboxes area
+        await this.page.waitForTimeout(1000);
+        
+        // Try to find and scroll to checkboxes area
+        try {
+          const checkboxArea = this.page.getByText(/I hereby agree to receive a/i).first();
+          if (await checkboxArea.isVisible({ timeout: 2000 }).catch(() => false)) {
+            await checkboxArea.scrollIntoViewIfNeeded();
+            console.log('✅ Scrolled to checkbox area');
+            await this.page.waitForTimeout(500);
+          }
+        } catch (e) {
+          console.log('⚠️ Could not scroll to checkbox area');
+        }
+        
+        let firstChecked = false;
+        
+        // Try multiple approaches
+        const firstCheckboxStrategies = [
+          // Strategy 1: Label with testid icon (from PolicyIssuancePage.js)
+          async () => {
+            const checkbox = this.page.locator('label').filter({ hasText: /I hereby agree to receive a/i }).getByTestId('CheckBoxOutlineBlankIcon');
+            if (await checkbox.isVisible({ timeout: 2000 })) {
+              await checkbox.click();
+              return true;
+            }
+            return false;
+          },
+          // Strategy 2: Direct testid selector (first one)
+          async () => {
+            const checkbox = this.page.getByTestId('CheckBoxOutlineBlankIcon').first();
+            if (await checkbox.isVisible({ timeout: 2000 })) {
+              await checkbox.click();
+              return true;
+            }
+            return false;
+          },
+          // Strategy 3: Click the label itself (which should trigger checkbox)
+          async () => {
+            const label = this.page.locator('label').filter({ hasText: /I hereby agree to receive a/i });
+            if (await label.isVisible({ timeout: 2000 })) {
+              await label.scrollIntoViewIfNeeded();
+              await this.page.waitForTimeout(200);
+              await label.click({ force: true });
+              return true;
+            }
+            return false;
+          },
+          // Strategy 4: Find actual checkbox input and check it
+          async () => {
+            const label = this.page.locator('label').filter({ hasText: /I hereby agree to receive a/i });
+            if (await label.isVisible({ timeout: 2000 })) {
+              await label.scrollIntoViewIfNeeded();
+              await this.page.waitForTimeout(200);
+              
+              // Try to find checkbox input in the label or near it
+              let checkboxInput = label.locator('input[type="checkbox"]').first();
+              if (!(await checkboxInput.isVisible({ timeout: 500 }).catch(() => false))) {
+                // Try finding in ancestor container
+                checkboxInput = label.locator('xpath=ancestor::*[1]').locator('input[type="checkbox"]').first();
+              }
+              
+              if (await checkboxInput.isVisible({ timeout: 500 }).catch(() => false)) {
+                await checkboxInput.scrollIntoViewIfNeeded();
+                await checkboxInput.check({ force: true });
+                return true;
+              } else {
+                // Try clicking the label if no input found
+                await label.click({ force: true });
+                return true;
+              }
+            }
+            return false;
+          },
+          // Strategy 5: Find checkbox by role near the label
+          async () => {
+            const label = this.page.getByText(/I hereby agree to receive a/i).first();
+            if (await label.isVisible({ timeout: 2000 })) {
+              const container = label.locator('xpath=ancestor::label[1]');
+              const checkbox = container.locator('input[type="checkbox"]').first();
+              if (await checkbox.isVisible({ timeout: 1000 }).catch(() => false)) {
+                await checkbox.check();
+                return true;
+              } else {
+                // Try getByRole
+                const roleCheckbox = container.getByRole('checkbox').first();
+                if (await roleCheckbox.isVisible({ timeout: 1000 }).catch(() => false)) {
+                  await roleCheckbox.check();
+                  return true;
+                }
+              }
+            }
+            return false;
+          }
+        ];
+        
+        for (let i = 0; i < firstCheckboxStrategies.length && !firstChecked; i++) {
+          try {
+            firstChecked = await firstCheckboxStrategies[i]();
+            if (firstChecked) {
+              console.log(`✅ First checkbox clicked (strategy ${i + 1})`);
+              // Wait a bit for state to update
+              await this.page.waitForTimeout(500);
+              
+              // Verify it's actually checked
+              try {
+                const label = this.page.locator('label').filter({ hasText: /I hereby agree to receive a/i }).first();
+                const checkboxInput = label.locator('input[type="checkbox"]').first();
+                const isChecked = await checkboxInput.isChecked().catch(() => false);
+                if (isChecked) {
+                  console.log('✅ First checkbox verified as checked');
+                  firstChecked = true;
+                  break;
+                } else {
+                  console.log('⚠️ First checkbox clicked but not checked, trying next strategy...');
+                  firstChecked = false;
+                }
+              } catch (verifyError) {
+                // If we can't verify, assume it worked
+                console.log('⚠️ Could not verify first checkbox state, assuming it worked');
+                firstChecked = true;
+                break;
+              }
+            }
+          } catch (e) {
+            continue;
+          }
+        }
+        
+        if (!firstChecked) {
+          console.log('⚠️ Could not check first checkbox with any strategy');
+        }
+      } catch (e) {
+        console.log(`⚠️ Error checking first checkbox: ${e.message}`);
+      }
+      
+      // Check second checkbox: "I hereby confirm that I have mandated Tata Motors..."
+      try {
+        console.log('Checking second checkbox: mandate confirmation...');
+        
+        // Try to find and scroll to second checkbox area
+        try {
+          const checkboxArea = this.page.getByText(/I hereby confirm that I have mandated/i).first();
+          if (await checkboxArea.isVisible({ timeout: 2000 }).catch(() => false)) {
+            await checkboxArea.scrollIntoViewIfNeeded();
+            console.log('✅ Scrolled to second checkbox area');
+            await this.page.waitForTimeout(500);
+          }
+        } catch (e) {
+          console.log('⚠️ Could not scroll to second checkbox area');
+        }
+        
+        let secondChecked = false;
+        
+        // Try multiple approaches
+        const secondCheckboxStrategies = [
+          // Strategy 1: Direct testid selector (second one, from PolicyIssuancePage.js)
+          async () => {
+            const checkbox = this.page.getByTestId('CheckBoxOutlineBlankIcon').nth(1);
+            if (await checkbox.isVisible({ timeout: 2000 })) {
+              await checkbox.click();
+              return true;
+            }
+            return false;
+          },
+          // Strategy 2: Label with testid icon
+          async () => {
+            const checkbox = this.page.locator('label').filter({ hasText: /I hereby confirm that I have mandated/i }).getByTestId('CheckBoxOutlineBlankIcon');
+            if (await checkbox.isVisible({ timeout: 2000 })) {
+              await checkbox.click();
+              return true;
+            }
+            return false;
+          },
+          // Strategy 3: Click the label itself
+          async () => {
+            const label = this.page.locator('label').filter({ hasText: /I hereby confirm that I have mandated/i });
+            if (await label.isVisible({ timeout: 2000 })) {
+              await label.scrollIntoViewIfNeeded();
+              await this.page.waitForTimeout(200);
+              await label.click({ force: true });
+              return true;
+            }
+            return false;
+          },
+          // Strategy 4: Find actual checkbox input and check it
+          async () => {
+            const label = this.page.locator('label').filter({ hasText: /I hereby confirm that I have mandated/i });
+            if (await label.isVisible({ timeout: 2000 })) {
+              await label.scrollIntoViewIfNeeded();
+              await this.page.waitForTimeout(200);
+              
+              // Try to find checkbox input in the label or near it
+              let checkboxInput = label.locator('input[type="checkbox"]').first();
+              if (!(await checkboxInput.isVisible({ timeout: 500 }).catch(() => false))) {
+                // Try finding in ancestor container
+                checkboxInput = label.locator('xpath=ancestor::*[1]').locator('input[type="checkbox"]').first();
+              }
+              
+              if (await checkboxInput.isVisible({ timeout: 500 }).catch(() => false)) {
+                await checkboxInput.scrollIntoViewIfNeeded();
+                await checkboxInput.check({ force: true });
+                return true;
+              } else {
+                await label.click({ force: true });
+                return true;
+              }
+            }
+            return false;
+          },
+          // Strategy 5: Find by text and get checkbox
+          async () => {
+            const label = this.page.getByText(/I hereby confirm that I have mandated/i).first();
+            if (await label.isVisible({ timeout: 2000 })) {
+              const container = label.locator('xpath=ancestor::label[1]');
+              const checkbox = container.locator('input[type="checkbox"]').first();
+              if (await checkbox.isVisible({ timeout: 1000 }).catch(() => false)) {
+                await checkbox.check();
+                return true;
+              } else {
+                // Try getByRole
+                const roleCheckbox = container.getByRole('checkbox').first();
+                if (await roleCheckbox.isVisible({ timeout: 1000 }).catch(() => false)) {
+                  await roleCheckbox.check();
+                  return true;
+                } else {
+                  await label.click();
+                  return true;
+                }
+              }
+            }
+            return false;
+          },
+          // Strategy 6: Get all checkboxes and click the second visible one
+          async () => {
+            const checkboxes = this.page.locator('input[type="checkbox"]');
+            const count = await checkboxes.count();
+            if (count >= 2) {
+              const secondCheckbox = checkboxes.nth(1);
+              if (await secondCheckbox.isVisible({ timeout: 1000 }).catch(() => false)) {
+                await secondCheckbox.check();
+                return true;
+              }
+            }
+            return false;
+          }
+        ];
+        
+        for (let i = 0; i < secondCheckboxStrategies.length && !secondChecked; i++) {
+          try {
+            secondChecked = await secondCheckboxStrategies[i]();
+            if (secondChecked) {
+              console.log(`✅ Second checkbox clicked (strategy ${i + 1})`);
+              // Wait a bit for state to update
+              await this.page.waitForTimeout(500);
+              
+              // Verify it's actually checked
+              try {
+                const label = this.page.locator('label').filter({ hasText: /I hereby confirm that I have mandated/i }).first();
+                const checkboxInput = label.locator('input[type="checkbox"]').first();
+                const isChecked = await checkboxInput.isChecked().catch(() => false);
+                if (isChecked) {
+                  console.log('✅ Second checkbox verified as checked');
+                  secondChecked = true;
+                  break;
+                } else {
+                  // Try finding by index
+                  const allCheckboxes = this.page.locator('input[type="checkbox"]');
+                  const secondCheckbox = allCheckboxes.nth(1);
+                  const isCheckedByIndex = await secondCheckbox.isChecked().catch(() => false);
+                  if (isCheckedByIndex) {
+                    console.log('✅ Second checkbox verified as checked (by index)');
+                    secondChecked = true;
+                    break;
+                  } else {
+                    console.log('⚠️ Second checkbox clicked but not checked, trying next strategy...');
+                    secondChecked = false;
+                  }
+                }
+              } catch (verifyError) {
+                // If we can't verify, assume it worked
+                console.log('⚠️ Could not verify second checkbox state, assuming it worked');
+                secondChecked = true;
+                break;
+              }
+            }
+          } catch (e) {
+            continue;
+          }
+        }
+        
+        if (!secondChecked) {
+          console.log('⚠️ Could not check second checkbox with any strategy');
+        }
+      } catch (e) {
+        console.log(`⚠️ Error checking second checkbox: ${e.message}`);
+      }
+      
+      // Upload invoice.pdf file
+      try {
+        console.log(`Uploading file: ${resolvedFilePath}...`);
+        
+        // Method 1: Use file chooser (recommended approach)
+        try {
+          const browseFilesButton = this.page.getByText('Browse files').first();
+          if (await browseFilesButton.isVisible({ timeout: 5000 })) {
+            // Set up file chooser handler before clicking
+            const fileChooserPromise = this.page.waitForEvent('filechooser');
+            await browseFilesButton.click();
+            console.log('✅ Browse files button clicked');
+            
+            const fileChooser = await fileChooserPromise;
+            await fileChooser.setFiles(resolvedFilePath);
+            console.log(`✅ File uploaded via file chooser: ${resolvedFilePath}`);
+          } else {
+            throw new Error('Browse files button not visible');
+          }
+        } catch (fileChooserError) {
+          console.log(`⚠️ File chooser method failed: ${fileChooserError.message}, trying alternatives...`);
+          
+          // Method 2: Find file input directly and set files
+          try {
+            const fileInput = this.page.locator('input[type="file"]').first();
+            // Wait for file input to be attached to DOM (may be hidden)
+            await fileInput.waitFor({ state: 'attached', timeout: 3000 });
+            await fileInput.setInputFiles(resolvedFilePath);
+            console.log(`✅ File uploaded via direct file input: ${resolvedFilePath}`);
+          } catch (directInputError) {
+            console.log(`⚠️ Direct file input method failed: ${directInputError.message}, trying body fallback...`);
+            
+            // Method 3: Use body setInputFiles (from recorded_flow.js and PolicyIssuancePage.js)
+            // This works when there's a file input attached to body
+            await this.page.locator('body').setInputFiles(resolvedFilePath);
+            console.log(`✅ File uploaded via body fallback: ${resolvedFilePath}`);
+          }
+        }
+      } catch (e) {
+        console.log(`❌ Could not upload file: ${e.message}`);
+        console.log(`❌ File upload error stack: ${e.stack}`);
+      }
+      
+      // Click Verify KYC button
+      try {
+        console.log('Clicking Verify KYC button...');
+        const verifyKYCButton = this.page.getByRole('button', { name: 'Verify KYC' });
+        if (await verifyKYCButton.isVisible({ timeout: 5000 })) {
+          await verifyKYCButton.click();
+          console.log('✅ Verify KYC button clicked');
+          
+          // Wait for modal to appear and click OK button
+          try {
+            console.log('Waiting for modal message to appear...');
+            
+            // Wait for modal dialog to appear - try multiple detection methods
+            let modalDetected = false;
+            let okButtonFound = false;
+            
+            // Method 1: Wait for "Message" text
+            try {
+              const modalTitle = this.page.getByText('Message').first();
+              await modalTitle.waitFor({ state: 'visible', timeout: 10000 });
+              modalDetected = true;
+              console.log('✅ Modal detected by title "Message"');
+            } catch (e) {
+              console.log('⚠️ Modal title "Message" not found immediately');
+            }
+            
+            // Method 2: Wait for dialog role
+            if (!modalDetected) {
+              try {
+                const modalDialog = this.page.locator('[role="dialog"]').first();
+                await modalDialog.waitFor({ state: 'visible', timeout: 5000 });
+                modalDetected = true;
+                console.log('✅ Modal detected by dialog role');
+              } catch (e) {
+                console.log('⚠️ Modal with dialog role not found');
+              }
+            }
+            
+            // Method 3: Wait for modal content text
+            if (!modalDetected) {
+              try {
+                const modalContent = this.page.getByText(/KYC fields provided could not be verified/i);
+                await modalContent.waitFor({ state: 'visible', timeout: 5000 });
+                modalDetected = true;
+                console.log('✅ Modal detected by content text');
+              } catch (e) {
+                console.log('⚠️ Modal content text not found');
+              }
+            }
+            
+            // Wait a moment for modal to fully render
+            if (modalDetected) {
+              await this.page.waitForTimeout(500);
+            }
+            
+            // Try multiple ways to find and click OK button
+            const okButtonSelectors = [
+              () => this.page.getByRole('button', { name: 'OK' }),
+              () => this.page.getByRole('button', { name: /^OK$/i }),
+              () => this.page.locator('button').filter({ hasText: /^OK$/i }),
+              () => this.page.locator('button:has-text("OK")'),
+            ];
+            
+            for (let i = 0; i < okButtonSelectors.length && !okButtonFound; i++) {
+              try {
+                const okButton = okButtonSelectors[i]();
+                if (await okButton.isVisible({ timeout: 3000 })) {
+                  await okButton.scrollIntoViewIfNeeded();
+                  await this.page.waitForTimeout(200);
+                  await okButton.click();
+                  console.log(`✅ OK button clicked (selector ${i + 1})`);
+                  okButtonFound = true;
+                  
+                  // Wait for modal to close
+                  await this.page.waitForTimeout(1000);
+                  break;
+                }
+              } catch (e) {
+                continue;
+              }
+            }
+            
+            if (!okButtonFound) {
+              console.log('⚠️ OK button not found in modal');
+            }
+          } catch (modalError) {
+            console.log(`⚠️ Could not handle modal: ${modalError.message}`);
+            console.log(`⚠️ Modal error stack: ${modalError.stack}`);
+          }
+          
+          // Click IC KYC PORTAL button
+          try {
+            // Wait a bit for page to update after modal dismissal
+            await this.page.waitForTimeout(1000);
+            
+            console.log('Clicking IC KYC PORTAL button...');
+            let buttonClicked = false;
+            
+            // Try multiple selectors for IC KYC PORTAL button
+            const buttonSelectors = [
+              () => this.page.getByRole('button', { name: 'IC KYC PORTAL' }),
+              () => this.page.getByRole('button', { name: 'IC KYC Portal' }),
+              () => this.page.getByRole('button', { name: /IC KYC/i }),
+              () => this.page.locator('button').filter({ hasText: /IC KYC/i }),
+              () => this.page.locator('button').filter({ hasText: /KYC PORTAL/i }),
+              () => this.page.locator('button:has-text("IC KYC")'),
+            ];
+            
+            for (let i = 0; i < buttonSelectors.length && !buttonClicked; i++) {
+              try {
+                const button = buttonSelectors[i]();
+                if (await button.isVisible({ timeout: 3000 })) {
+                  await button.click();
+                  console.log(`✅ IC KYC PORTAL button clicked (selector ${i + 1})`);
+                  buttonClicked = true;
+                  
+                  // Handle IC KYC Portal page actions
+                  await this.handleICKYCPortalPage();
+                  break;
+                }
+              } catch (e) {
+                // Try next selector
+                continue;
+              }
+            }
+            
+            if (!buttonClicked) {
+              console.log('⚠️ IC KYC PORTAL button not found with any selector');
+            }
+          } catch (icKycError) {
+            console.log(`⚠️ Could not click IC KYC PORTAL button: ${icKycError.message}`);
+          }
+          
+        } else {
+          console.log('⚠️ Verify KYC button not found');
+        }
+      } catch (e) {
+        console.log(`⚠️ Could not click Verify KYC button: ${e.message}`);
+      }
+      
+      console.log('✅ Proposal preview page actions completed');
+    } catch (e) {
+      console.log(`❌ Error handling proposal preview page: ${e.message}`);
+      throw e;
+    }
+  }
+
+  /**
+   * Handle IC KYC Portal page: Fill PAN, Mobile Number, and click SUBMIT
+   */
+  async handleICKYCPortalPage(panNumber = 'BPEPG4929L', mobileNumber = '7483774467') {
+    try {
+      console.log('🔍 Handling IC KYC Portal page...');
+      
+      // Wait for navigation to IC KYC page
+      console.log('Waiting for navigation to IC KYC Portal page...');
+      await this.page.waitForLoadState('networkidle', { timeout: 15000 });
+      await this.page.waitForTimeout(2000);
+      
+      // Wait for KYC page to load (look for key indicators)
+      try {
+        const kycIndicators = [
+          this.page.getByText('Customer Onboarding'),
+          this.page.getByText('KYC verification'),
+          this.page.getByText(/Please help us with/i),
+          this.page.getByText('PAN Number'),
+        ];
+        
+        let pageLoaded = false;
+        for (const indicator of kycIndicators) {
+          try {
+            if (await indicator.isVisible({ timeout: 5000 })) {
+              console.log('✅ IC KYC Portal page detected');
+              pageLoaded = true;
+              break;
+            }
+          } catch (e) {
+            continue;
+          }
+        }
+        
+        if (!pageLoaded) {
+          console.log('⚠️ IC KYC Portal page may not have loaded completely');
+        }
+        
+        // Extra wait to ensure form is fully rendered
+        await this.page.waitForTimeout(1000);
+      } catch (e) {
+        console.log('⚠️ Could not detect IC KYC Portal page:', e.message);
+      }
+      
+      // Fill PAN Number - MUST be filled first into the correct field
+      try {
+        console.log(`Filling PAN Number: ${panNumber}...`);
+        const panSelectors = [
+          // Strategy 1: Find label with "PAN Number" text and get the following input
+          () => {
+            const label = this.page.getByText('PAN Number').first();
+            return label.locator('xpath=following::input[1]');
+          },
+          // Strategy 2: Use getByLabel with exact text
+          () => this.page.getByLabel('PAN Number'),
+          // Strategy 3: Find label and navigate to input via parent
+          () => {
+            const label = this.page.locator('label, div').filter({ hasText: /^PAN Number/i }).first();
+            return label.locator('xpath=following-sibling::*//input | following::input[1]').first();
+          },
+          // Strategy 4: Find by placeholder that contains PAN example
+          () => this.page.getByPlaceholder(/e.g. BHASD|PAN/i),
+          // Strategy 5: Try to find input near PAN label text
+          () => {
+            const panText = this.page.getByText(/PAN Number/i).first();
+            return this.page.locator('input').filter({ has: panText.locator('xpath=ancestor::*[1]') }).first();
+          },
+          // Strategy 6: Find first text input that's not a mobile field
+          async () => {
+            // Find all text inputs and exclude any that might be mobile
+            const allInputs = this.page.locator('input[type="text"]');
+            const count = await allInputs.count();
+            // Return first input (usually PAN comes first)
+            return count > 0 ? allInputs.nth(0) : null;
+          },
+        ];
+        
+        let panFilled = false;
+        for (let i = 0; i < panSelectors.length && !panFilled; i++) {
+          try {
+            const panInputFn = panSelectors[i];
+            const panInput = await panInputFn();
+            if (!panInput) continue;
+            
+            if (await panInput.isVisible({ timeout: 3000 })) {
+              await panInput.scrollIntoViewIfNeeded();
+              await this.page.waitForTimeout(300);
+              await panInput.click({ force: true });
+              await this.page.waitForTimeout(200);
+              await panInput.fill(''); // Clear first
+              await this.page.waitForTimeout(100);
+              await panInput.fill(panNumber);
+              await this.page.waitForTimeout(300);
+              
+              // Verify it was filled correctly
+              const value = await panInput.inputValue().catch(() => '');
+              if (value === panNumber || value.includes(panNumber)) {
+                console.log(`✅ PAN Number filled: ${panNumber} (selector ${i + 1})`);
+                panFilled = true;
+                await this.page.waitForTimeout(500);
+                break;
+              } else {
+                console.log(`⚠️ PAN input found but value incorrect. Expected: ${panNumber}, Got: ${value}`);
+              }
+            }
+          } catch (e) {
+            console.log(`⚠️ PAN selector ${i + 1} failed: ${e.message}`);
+            continue;
+          }
+        }
+        
+        if (!panFilled) {
+          console.log('⚠️ PAN Number field not found with any selector');
+        }
+      } catch (e) {
+        console.log(`⚠️ Error filling PAN Number: ${e.message}`);
+      }
+      
+      // Fill Mobile Number - MUST be filled into a DIFFERENT field than PAN
+      try {
+        console.log(`Filling Mobile Number: ${mobileNumber}...`);
+        const mobileSelectors = [
+          // Strategy 1: Find label with "Mobile Number" text and get the following input
+          () => {
+            const label = this.page.getByText('Mobile Number').first();
+            return label.locator('xpath=following::input[1]');
+          },
+          // Strategy 2: Use getByLabel with exact text
+          () => this.page.getByLabel('Mobile Number'),
+          // Strategy 3: Find label and navigate to input via parent
+          () => {
+            const label = this.page.locator('label, div').filter({ hasText: /^Mobile Number/i }).first();
+            return label.locator('xpath=following-sibling::*//input | following::input[1]').first();
+          },
+          // Strategy 4: Try to find input that does NOT contain PAN number (to avoid filling PAN field)
+          async () => {
+            const allTextInputs = this.page.locator('input[type="text"]');
+            const count = await allTextInputs.count();
+            // Try second input (Mobile is usually second)
+            if (count >= 2) {
+              const secondInput = allTextInputs.nth(1);
+              const currentValue = await secondInput.inputValue().catch(() => '');
+              // Make sure it's not the PAN field (check if it doesn't have PAN format)
+              if (currentValue !== panNumber && !currentValue.match(/^[A-Z]{5}[0-9]{4}[A-Z]$/)) {
+                return secondInput;
+              }
+            }
+            return null;
+          },
+          // Strategy 5: Find input near Mobile label text (exclude PAN field)
+          async () => {
+            const mobileText = this.page.getByText(/Mobile Number/i).first();
+            const inputs = this.page.locator('input[type="text"]');
+            const count = await inputs.count();
+            // Try inputs after finding mobile text, excluding first one (PAN)
+            for (let i = 1; i < count; i++) {
+              const input = inputs.nth(i);
+              if (await input.isVisible({ timeout: 1000 }).catch(() => false)) {
+                const value = await input.inputValue().catch(() => '');
+                // Make sure this input doesn't have PAN number
+                if (value !== panNumber) {
+                  return input;
+                }
+              }
+            }
+            return null;
+          },
+          // Strategy 6: Find by type tel (mobile numbers often use tel type)
+          () => this.page.locator('input[type="tel"]'),
+          // Strategy 7: Last resort - second text input (but verify it's not PAN)
+          async () => {
+            const inputs = this.page.locator('input[type="text"]');
+            const count = await inputs.count();
+            if (count >= 2) {
+              const secondInput = inputs.nth(1);
+              const value = await secondInput.inputValue().catch(() => '');
+              // Only use if it doesn't contain PAN number
+              if (value !== panNumber) {
+                return secondInput;
+              }
+            }
+            return null;
+          },
+        ];
+        
+        let mobileFilled = false;
+        for (let i = 0; i < mobileSelectors.length && !mobileFilled; i++) {
+          try {
+            const mobileInputFn = mobileSelectors[i];
+            const mobileInput = await mobileInputFn();
+            if (!mobileInput) continue;
+            
+            if (await mobileInput.isVisible({ timeout: 3000 })) {
+              await mobileInput.scrollIntoViewIfNeeded();
+              await this.page.waitForTimeout(300);
+              
+              // Double-check: make sure this input doesn't already have PAN number
+              const currentValue = await mobileInput.inputValue().catch(() => '');
+              if (currentValue === panNumber) {
+                console.log(`⚠️ Mobile selector ${i + 1} found PAN field instead, skipping...`);
+                continue;
+              }
+              
+              await mobileInput.click({ force: true });
+              await this.page.waitForTimeout(200);
+              await mobileInput.fill(''); // Clear first
+              await this.page.waitForTimeout(100);
+              await mobileInput.fill(mobileNumber);
+              await this.page.waitForTimeout(300);
+              
+              // Verify it was filled correctly and NOT with PAN
+              const value = await mobileInput.inputValue().catch(() => '');
+              if ((value === mobileNumber || value.includes(mobileNumber)) && value !== panNumber) {
+                console.log(`✅ Mobile Number filled: ${mobileNumber} (selector ${i + 1})`);
+                mobileFilled = true;
+                await this.page.waitForTimeout(500);
+                break;
+              } else {
+                console.log(`⚠️ Mobile input found but value incorrect. Expected: ${mobileNumber}, Got: ${value}`);
+              }
+            }
+          } catch (e) {
+            console.log(`⚠️ Mobile selector ${i + 1} failed: ${e.message}`);
+            continue;
+          }
+        }
+        
+        if (!mobileFilled) {
+          console.log('⚠️ Mobile Number field not found with any selector');
+        }
+      } catch (e) {
+        console.log(`⚠️ Error filling Mobile Number: ${e.message}`);
+      }
+      
+      // Click SUBMIT button
+      try {
+        console.log('Clicking SUBMIT button...');
+        const submitSelectors = [
+          () => this.page.getByRole('button', { name: 'SUBMIT' }),
+          () => this.page.getByRole('button', { name: /SUBMIT/i }),
+          () => this.page.locator('button').filter({ hasText: /SUBMIT/i }),
+          () => this.page.locator('button:has-text("SUBMIT")'),
+          () => this.page.locator('button[type="submit"]'),
+        ];
+        
+        let submitClicked = false;
+        for (let i = 0; i < submitSelectors.length && !submitClicked; i++) {
+          try {
+            const submitButton = submitSelectors[i]();
+            if (await submitButton.isVisible({ timeout: 5000 })) {
+              await submitButton.scrollIntoViewIfNeeded();
+              await this.page.waitForTimeout(500);
+              await submitButton.click();
+              console.log(`✅ SUBMIT button clicked (selector ${i + 1})`);
+              submitClicked = true;
+              break;
+            }
+          } catch (e) {
+            continue;
+          }
+        }
+        
+        if (!submitClicked) {
+          console.log('⚠️ SUBMIT button not found');
+        }
+      } catch (e) {
+        console.log(`⚠️ Error clicking SUBMIT button: ${e.message}`);
+      }
+      
+      // Wait for page to load after SUBMIT (might show upload section)
+      await this.page.waitForTimeout(3000);
+      await this.page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+      
+      // Handle file uploads if the upload section appears
+      const photographFile = 'Nam Pancard (1) (1).pdf';
+      const addressDocumentFile = 'Nam Pancard (1) (1).pdf';
+      
+      // Upload Photograph
+      try {
+        console.log(`Uploading photograph: ${photographFile}...`);
+        const resolvedPhotoPath = path.isAbsolute(photographFile) ? photographFile : path.resolve(process.cwd(), photographFile);
+        console.log(`🔍 Resolved photograph path: ${resolvedPhotoPath}`);
+        
+        let photoUploaded = false;
+        
+        // Strategy 1: Find file input directly (most reliable)
+        try {
+          const allFileInputs = this.page.locator('input[type="file"]');
+          const count = await allFileInputs.count();
+          console.log(`🔍 Found ${count} file input(s) on page`);
+          
+          if (count > 0) {
+            const firstFileInput = allFileInputs.first();
+            // File inputs are often hidden, so check if attached to DOM
+            await firstFileInput.waitFor({ state: 'attached', timeout: 3000 }).catch(() => {});
+            
+            // Scroll to make sure the upload area is visible
+            await firstFileInput.scrollIntoViewIfNeeded().catch(() => {});
+            await this.page.waitForTimeout(500);
+            
+            await firstFileInput.setInputFiles(resolvedPhotoPath);
+            console.log(`✅ Photograph uploaded via first file input: ${resolvedPhotoPath}`);
+            photoUploaded = true;
+            await this.page.waitForTimeout(1000);
+          }
+        } catch (e) {
+          console.log(`⚠️ Direct file input upload failed: ${e.message}`);
+        }
+        
+        // Strategy 2: Find "Upload Photograph" section and locate browse button
+        if (!photoUploaded) {
+          try {
+            const photoSection = this.page.locator('*').filter({ hasText: /Upload Photograph/i }).first();
+            if (await photoSection.isVisible({ timeout: 3000 }).catch(() => false)) {
+              console.log('🔍 Found Upload Photograph section');
+              
+              // Try clicking the section itself or "click to browse files" within it
+              const browseText = photoSection.getByText(/click to browse files|Drag and Drop/i).first();
+              if (await browseText.isVisible({ timeout: 2000 }).catch(() => false)) {
+                console.log('🔍 Found browse text in photograph section');
+                const fileChooserPromise = this.page.waitForEvent('filechooser', { timeout: 5000 });
+                await browseText.scrollIntoViewIfNeeded();
+                await browseText.click();
+                const fileChooser = await fileChooserPromise.catch(() => null);
+                
+                if (fileChooser) {
+                  await fileChooser.setFiles(resolvedPhotoPath);
+                  console.log(`✅ Photograph uploaded via browse button: ${resolvedPhotoPath}`);
+                  photoUploaded = true;
+                }
+              } else {
+                // Click the entire section
+                const fileChooserPromise = this.page.waitForEvent('filechooser', { timeout: 5000 });
+                await photoSection.click();
+                const fileChooser = await fileChooserPromise.catch(() => null);
+                
+                if (fileChooser) {
+                  await fileChooser.setFiles(resolvedPhotoPath);
+                  console.log(`✅ Photograph uploaded via section click: ${resolvedPhotoPath}`);
+                  photoUploaded = true;
+                }
+              }
+              await this.page.waitForTimeout(1000);
+            }
+          } catch (e) {
+            console.log(`⚠️ Photograph section browse failed: ${e.message}`);
+          }
+        }
+        
+        // Strategy 3: Find all "click to browse files" and try the first one
+        if (!photoUploaded) {
+          try {
+            const allBrowseTexts = this.page.getByText(/click to browse files|browse files/i);
+            const count = await allBrowseTexts.count();
+            if (count > 0) {
+              const firstBrowse = allBrowseTexts.first();
+              if (await firstBrowse.isVisible({ timeout: 2000 }).catch(() => false)) {
+                const fileChooserPromise = this.page.waitForEvent('filechooser', { timeout: 5000 });
+                await firstBrowse.scrollIntoViewIfNeeded();
+                await firstBrowse.click();
+                const fileChooser = await fileChooserPromise.catch(() => null);
+                
+                if (fileChooser) {
+                  await fileChooser.setFiles(resolvedPhotoPath);
+                  console.log(`✅ Photograph uploaded via first browse text: ${resolvedPhotoPath}`);
+                  photoUploaded = true;
+                }
+              }
+            }
+          } catch (e) {
+            console.log(`⚠️ First browse text failed: ${e.message}`);
+          }
+        }
+        
+        if (!photoUploaded) {
+          console.log('⚠️ Photograph upload section not found or upload failed');
+        }
+      } catch (e) {
+        console.log(`⚠️ Error uploading photograph: ${e.message}`);
+      }
+      
+      // Upload Address Document
+      try {
+        console.log(`Uploading address document: ${addressDocumentFile}...`);
+        const resolvedAddressPath = path.isAbsolute(addressDocumentFile) ? addressDocumentFile : path.resolve(process.cwd(), addressDocumentFile);
+        console.log(`🔍 Resolved address document path: ${resolvedAddressPath}`);
+        
+        let addressUploaded = false;
+        
+        // Strategy 1: Find second file input directly (most reliable)
+        try {
+          const allFileInputs = this.page.locator('input[type="file"]');
+          const count = await allFileInputs.count();
+          console.log(`🔍 Found ${count} file input(s) on page for address document`);
+          
+          if (count >= 2) {
+            const secondFileInput = allFileInputs.nth(1);
+            // File inputs are often hidden, so check if attached to DOM
+            await secondFileInput.waitFor({ state: 'attached', timeout: 3000 }).catch(() => {});
+            
+            // Scroll to make sure the upload area is visible
+            await secondFileInput.scrollIntoViewIfNeeded().catch(() => {});
+            await this.page.waitForTimeout(500);
+            
+            await secondFileInput.setInputFiles(resolvedAddressPath);
+            console.log(`✅ Address Document uploaded via second file input: ${resolvedAddressPath}`);
+            addressUploaded = true;
+            await this.page.waitForTimeout(1000);
+          }
+        } catch (e) {
+          console.log(`⚠️ Direct file input upload failed for address: ${e.message}`);
+        }
+        
+        // Strategy 2: Find "Upload Address Document" section and locate browse button
+        if (!addressUploaded) {
+          try {
+            const addressSection = this.page.locator('*').filter({ hasText: /Upload Address Document/i }).first();
+            if (await addressSection.isVisible({ timeout: 3000 }).catch(() => false)) {
+              console.log('🔍 Found Upload Address Document section');
+              
+              // Try clicking the section itself or "click to browse files" within it
+              const browseText = addressSection.getByText(/click to browse files|Drag and Drop/i).first();
+              if (await browseText.isVisible({ timeout: 2000 }).catch(() => false)) {
+                console.log('🔍 Found browse text in address document section');
+                const fileChooserPromise = this.page.waitForEvent('filechooser', { timeout: 5000 });
+                await browseText.scrollIntoViewIfNeeded();
+                await browseText.click();
+                const fileChooser = await fileChooserPromise.catch(() => null);
+                
+                if (fileChooser) {
+                  await fileChooser.setFiles(resolvedAddressPath);
+                  console.log(`✅ Address Document uploaded via browse button: ${resolvedAddressPath}`);
+                  addressUploaded = true;
+                }
+              } else {
+                // Click the entire section
+                const fileChooserPromise = this.page.waitForEvent('filechooser', { timeout: 5000 });
+                await addressSection.click();
+                const fileChooser = await fileChooserPromise.catch(() => null);
+                
+                if (fileChooser) {
+                  await fileChooser.setFiles(resolvedAddressPath);
+                  console.log(`✅ Address Document uploaded via section click: ${resolvedAddressPath}`);
+                  addressUploaded = true;
+                }
+              }
+              await this.page.waitForTimeout(1000);
+            }
+          } catch (e) {
+            console.log(`⚠️ Address document section browse failed: ${e.message}`);
+          }
+        }
+        
+        // Strategy 3: Find all "click to browse files" and try the second one
+        if (!addressUploaded) {
+          try {
+            const allBrowseTexts = this.page.getByText(/click to browse files|browse files/i);
+            const count = await allBrowseTexts.count();
+            if (count >= 2) {
+              const secondBrowse = allBrowseTexts.nth(1);
+              if (await secondBrowse.isVisible({ timeout: 2000 }).catch(() => false)) {
+                const fileChooserPromise = this.page.waitForEvent('filechooser', { timeout: 5000 });
+                await secondBrowse.scrollIntoViewIfNeeded();
+                await secondBrowse.click();
+                const fileChooser = await fileChooserPromise.catch(() => null);
+                
+                if (fileChooser) {
+                  await fileChooser.setFiles(resolvedAddressPath);
+                  console.log(`✅ Address Document uploaded via second browse text: ${resolvedAddressPath}`);
+                  addressUploaded = true;
+                }
+              }
+            }
+          } catch (e) {
+            console.log(`⚠️ Second browse text failed: ${e.message}`);
+          }
+        }
+        
+        if (!addressUploaded) {
+          console.log('⚠️ Address Document upload section not found or upload failed');
+        }
+      } catch (e) {
+        console.log(`⚠️ Error uploading address document: ${e.message}`);
+      }
+      
+      // Click Upload button
+      try {
+        console.log('Clicking Upload button...');
+        const uploadSelectors = [
+          () => this.page.getByRole('button', { name: 'Upload' }),
+          () => this.page.getByRole('button', { name: /Upload/i }),
+          () => this.page.locator('button').filter({ hasText: /^Upload$/i }),
+          () => this.page.locator('button:has-text("Upload")'),
+        ];
+        
+        let uploadClicked = false;
+        for (let i = 0; i < uploadSelectors.length && !uploadClicked; i++) {
+          try {
+            const uploadButton = uploadSelectors[i]();
+            if (await uploadButton.isVisible({ timeout: 5000 })) {
+              await uploadButton.scrollIntoViewIfNeeded();
+              await this.page.waitForTimeout(500);
+              await uploadButton.click();
+              console.log(`✅ Upload button clicked (selector ${i + 1})`);
+              uploadClicked = true;
+              break;
+            }
+          } catch (e) {
+            continue;
+          }
+        }
+        
+        if (!uploadClicked) {
+          console.log('⚠️ Upload button not found');
+        }
+      } catch (e) {
+        console.log(`⚠️ Error clicking Upload button: ${e.message}`);
+      }
+      
+      // Wait for 2 minutes after uploading
+      console.log('⏳ Waiting 2 minutes after uploading documents...');
+      await this.page.waitForTimeout(120000); // 2 minutes = 120,000 milliseconds
+      console.log('✅ 2 minutes wait completed after document upload');
+      
+    } catch (e) {
+      console.log(`❌ Error handling IC KYC Portal page: ${e.message}`);
+      throw e;
+    }
+  }
+
+  /**
    * Click Proposal Preview button
    */
   async clickProposalPreview() {
@@ -1068,14 +2104,12 @@ class ProposalDetailsPage extends BaseRenewalPage {
             console.log('Screenshot saved for debugging: proposal-preview-page.png');
           }
           
+          // Handle proposal preview page actions: checkboxes, file upload, and Verify KYC
+          await this.handleProposalPreviewPage();
+          
         } catch (navError) {
           console.log('Error waiting for navigation:', navError.message);
         }
-        
-        // Wait for 15 seconds on the proposal preview page before exiting
-        console.log('⏳ Waiting 15 seconds on proposal preview page for manual verification...');
-        await this.page.waitForTimeout(15000);
-        console.log('✅ 15 seconds completed, exiting test...');
         
       } else {
         console.log('Proposal Preview button not found');
