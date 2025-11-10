@@ -30,16 +30,26 @@ class PolicyVehicleDetailsPage {
     // Step 1: Select OEM first to initialize dependent form state
     await this.oemHandler.selectOEM(data.oem);
     
-    // Step 2: Select Proposer Type (Individual/Corporate)
+    // Step 1.5: Toggle Offline Quote to YES if needed
+    if (data.offlineQuote === true || data.offlineQuote === 'YES' || data.offlineQuote === 'Yes') {
+      await this.oemHandler.toggleOfflineQuoteYes();
+    }
+    
+    // Step 2: Select Vehicle Class (Private/Commercial) if provided
+    if (data.vehicleClass) {
+      await this.oemHandler.selectVehicleClass(data.vehicleClass);
+    }
+    
+    // Step 3: Select Proposer Type (Individual/Corporate)
     await this.oemHandler.selectProposerType(data.proposerType);
     
-    // Step 3: Select Vehicle Cover (affects form fields)
+    // Step 4: Select Vehicle Cover (affects form fields)
     await this.oemHandler.selectVehicleCover(data.vehicleCover);
     
-    // Step 4: Fill Previous Policy Details
+    // Step 5: Fill Previous Policy Details
     await this.previousPolicyHandler.fillPreviousPolicyDetails(data);
     
-    // Step 5: Fill Customer/Company Details based on proposer type
+    // Step 6: Fill Customer/Company Details based on proposer type
     if (data.proposerType && data.proposerType.toUpperCase() === 'CORPORATE') {
       // Fill Company Details for corporate proposer
       if (await this.companyHandler.isCompanyDetailsVisible()) {
@@ -50,10 +60,10 @@ class PolicyVehicleDetailsPage {
       await this.customerHandler.fillCustomerDetails(data);
     }
     
-    // Step 6: Fill Vehicle Details
+    // Step 7: Fill Vehicle Details
     await this.vehicleHandler.fillVehicleDetails(data);
     
-    // Step 7: Fill Registration Details
+    // Step 8: Fill Registration Details
     await this.registrationHandler.fillRegistrationDetails(data);
     
     console.log('✅ Policy & Vehicle Details Form completed successfully');

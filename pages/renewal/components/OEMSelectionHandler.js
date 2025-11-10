@@ -23,6 +23,40 @@ class OEMSelectionHandler extends BaseRenewalPage {
   }
 
   /**
+   * Toggle Offline Quote to YES
+   */
+  async toggleOfflineQuoteYes() {
+    console.log('Toggling Offline Quote to YES...');
+    try {
+      // Method 1: Find label and get parent, then find Yes button
+      const offlineQuoteLabel = this.page.locator('label:has-text("Offline Quote")');
+      if (await offlineQuoteLabel.isVisible({ timeout: 5000 }).catch(() => false)) {
+        const container = offlineQuoteLabel.locator('xpath=ancestor::*[1]');
+        const yesButton = container.locator('button:has-text("Yes")');
+        if (await yesButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+          const ariaPressed = await yesButton.getAttribute('aria-pressed').catch(() => null);
+          if (ariaPressed !== 'true') {
+            await yesButton.scrollIntoViewIfNeeded();
+            await this.page.waitForTimeout(300);
+            await yesButton.click();
+            console.log('✅ Offline Quote toggled to YES');
+            return;
+          } else {
+            console.log('✅ Offline Quote is already set to YES');
+            return;
+          }
+        }
+      }
+      
+      // Method 2: Use toggleYesNearLabel from BaseRenewalPage
+      await this.toggleYesNearLabel(/Offline Quote/i);
+      console.log('✅ Offline Quote toggled to YES (via toggleYesNearLabel)');
+    } catch (e) {
+      console.log(`⚠️ Error toggling Offline Quote: ${e.message}`);
+    }
+  }
+
+  /**
    * Select Proposer Type (Individual/Corporate)
    * @param {string} proposerType - Type of proposer
    */
@@ -32,6 +66,27 @@ class OEMSelectionHandler extends BaseRenewalPage {
     if (await proposerToggle.isVisible().catch(() => false)) {
       await proposerToggle.click();
       console.log(`✅ Proposer Type selected: ${proposerType}`);
+    }
+  }
+
+  /**
+   * Select Vehicle Class (Private/Commercial)
+   * @param {string} vehicleClass - Type of vehicle class (PRIVATE or COMMERCIAL)
+   */
+  async selectVehicleClass(vehicleClass) {
+    console.log(`Selecting Vehicle Class: ${vehicleClass}`);
+    try {
+      const vehicleClassToggle = this.page.getByRole('button', { name: new RegExp(vehicleClass, 'i') });
+      if (await vehicleClassToggle.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await vehicleClassToggle.scrollIntoViewIfNeeded();
+        await this.page.waitForTimeout(300);
+        await vehicleClassToggle.click();
+        console.log(`✅ Vehicle Class selected: ${vehicleClass}`);
+      } else {
+        console.log(`⚠️ Vehicle Class button "${vehicleClass}" not found`);
+      }
+    } catch (e) {
+      console.log(`⚠️ Error selecting Vehicle Class: ${e.message}`);
     }
   }
 

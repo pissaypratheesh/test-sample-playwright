@@ -1333,35 +1333,277 @@ class ProposalDetailsPage extends BaseRenewalPage {
         console.log(`⚠️ Error checking second checkbox: ${e.message}`);
       }
       
-      // Upload invoice.pdf file
-      try {
-        console.log(`Uploading file: ${resolvedFilePath}...`);
-        
-        // Method 1: Use file chooser (recommended approach)
+        // Check "Mandate Form" radio button
         try {
-          const browseFilesButton = this.page.getByText('Browse files').first();
-          if (await browseFilesButton.isVisible({ timeout: 5000 })) {
-            // Set up file chooser handler before clicking
-            const fileChooserPromise = this.page.waitForEvent('filechooser');
-            await browseFilesButton.click();
-            console.log('✅ Browse files button clicked');
-            
-            const fileChooser = await fileChooserPromise;
-            await fileChooser.setFiles(resolvedFilePath);
-            console.log(`✅ File uploaded via file chooser: ${resolvedFilePath}`);
-          } else {
-            throw new Error('Browse files button not visible');
+          console.log('Checking "Mandate Form" radio button...');
+          await this.page.waitForTimeout(1000); // Wait a bit after checkboxes
+          
+          // First, wait for radio buttons to appear
+          try {
+            await this.page.waitForSelector('input[type="radio"]', { timeout: 5000 }).catch(() => {});
+            await this.page.waitForTimeout(500);
+          } catch (e) {
+            console.log('⚠️ Radio buttons may not be visible yet');
+          }
+          
+          const mandateRadioStrategies = [
+            // Strategy 1: Click the label text directly (most reliable)
+            async () => {
+              const mandateLabel = this.page.getByText(/Mandate Form/i).first();
+              if (await mandateLabel.isVisible({ timeout: 5000 })) {
+                await mandateLabel.scrollIntoViewIfNeeded();
+                await this.page.waitForTimeout(300);
+                await mandateLabel.click();
+                // Verify radio is checked
+                await this.page.waitForTimeout(500);
+                const radio = this.page.getByRole('radio', { name: /Mandate Form/i });
+                const isChecked = await radio.isChecked().catch(() => false);
+                return isChecked;
+              }
+              return false;
+            },
+            // Strategy 2: By role with exact name (from PolicyIssuancePage.js)
+            async () => {
+              const radio = this.page.getByRole('radio', { name: 'Mandate Form' });
+              if (await radio.isVisible({ timeout: 5000 })) {
+                await radio.scrollIntoViewIfNeeded();
+                await this.page.waitForTimeout(300);
+                await radio.check();
+                return true;
+              }
+              return false;
+            },
+            // Strategy 3: By role with case-insensitive regex
+            async () => {
+              const radio = this.page.getByRole('radio', { name: /Mandate Form/i });
+              if (await radio.isVisible({ timeout: 5000 })) {
+                await radio.scrollIntoViewIfNeeded();
+                await this.page.waitForTimeout(300);
+                await radio.check();
+                return true;
+              }
+              return false;
+            },
+            // Strategy 4: Find by text and get parent radio or nearby radio
+            async () => {
+              const mandateText = this.page.getByText(/Mandate Form/i).first();
+              if (await mandateText.isVisible({ timeout: 5000 })) {
+                await mandateText.scrollIntoViewIfNeeded();
+                // Try to find radio button nearby
+                const radio = mandateText.locator('xpath=ancestor::*[1]//input[@type="radio"] | following::input[@type="radio"][1] | preceding::input[@type="radio"][1]').first();
+                if (await radio.count() > 0) {
+                  await radio.check();
+                  return true;
+                }
+              }
+              return false;
+            },
+            // Strategy 5: Find all radio buttons and check one with Mandate Form label
+          async () => {
+            const radios = this.page.locator('input[type="radio"]');
+            const count = await radios.count();
+            for (let i = 0; i < count; i++) {
+              const radio = radios.nth(i);
+              // Try to find associated label
+              const radioId = await radio.getAttribute('id').catch(() => null);
+              if (radioId) {
+                const label = this.page.locator(`label[for="${radioId}"]`);
+                const labelText = await label.textContent().catch(() => '');
+                if (/Mandate Form/i.test(labelText)) {
+                  await radio.scrollIntoViewIfNeeded();
+                  await this.page.waitForTimeout(300);
+                  await radio.check();
+                  return true;
+                }
+              }
+              // Try to find label near the radio
+              const labelNearby = radio.locator('xpath=following-sibling::label[1] | ancestor::label[1]');
+              const labelTextNearby = await labelNearby.textContent().catch(() => '');
+              if (/Mandate Form/i.test(labelTextNearby)) {
+                await radio.scrollIntoViewIfNeeded();
+                await this.page.waitForTimeout(300);
+                await radio.check();
+                return true;
+              }
+            }
+            return false;
+          },
+            // Strategy 6: Find radio button by role and filter by accessible name
+          async () => {
+            const allRadios = this.page.getByRole('radio');
+            const count = await allRadios.count();
+            for (let i = 0; i < count; i++) {
+              const radio = allRadios.nth(i);
+              let accessibleName = await radio.getAttribute('aria-label').catch(() => '');
+              
+              // If no aria-label, try to get name from associated label
+              if (!accessibleName) {
+                const radioId = await radio.getAttribute('id').catch(() => null);
+                if (radioId) {
+                  accessibleName = await this.page.locator(`label[for="${radioId}"]`).textContent().catch(() => '');
+                }
+              }
+              
+              // Also try to get text from nearby label
+              if (!accessibleName) {
+                const nearbyLabel = radio.locator('xpath=following-sibling::label[1] | ancestor::label[1]');
+                accessibleName = await nearbyLabel.textContent().catch(() => '');
+              }
+              
+              if (accessibleName && /Mandate Form/i.test(accessibleName)) {
+                await radio.scrollIntoViewIfNeeded();
+                await this.page.waitForTimeout(300);
+                await radio.check();
+                return true;
+              }
+            }
+            return false;
+          },
+        ];
+        
+        let mandateChecked = false;
+        for (let i = 0; i < mandateRadioStrategies.length && !mandateChecked; i++) {
+          try {
+            console.log(`  Trying mandate radio selector ${i + 1}...`);
+            mandateChecked = await mandateRadioStrategies[i]();
+            if (mandateChecked) {
+              console.log(`✅ "Mandate Form" radio button checked (strategy ${i + 1})`);
+              await this.page.waitForTimeout(500);
+              
+              // Verify it's checked
+              try {
+                const radio = this.page.getByRole('radio', { name: /Mandate Form/i });
+                const isChecked = await radio.isChecked().catch(() => false);
+                if (isChecked) {
+                  console.log('✅ "Mandate Form" radio button verified as checked');
+                  mandateChecked = true;
+                  break;
+                } else {
+                  console.log('⚠️ Mandate radio clicked but not checked, trying next strategy...');
+                  mandateChecked = false;
+                }
+              } catch (verifyError) {
+                console.log('⚠️ Could not verify mandate radio state, assuming it worked');
+                mandateChecked = true;
+                break;
+              }
+            }
+          } catch (e) {
+            console.log(`  Strategy ${i + 1} failed: ${e.message}`);
+            continue;
+          }
+        }
+        
+        if (!mandateChecked) {
+          console.log('⚠️ Could not check "Mandate Form" radio button with any strategy');
+        }
+      } catch (e) {
+        console.log(`⚠️ Error checking "Mandate Form" radio button: ${e.message}`);
+      }
+      
+      // Wait for the second "Browse files" button to appear after Mandate Form is checked
+      await this.page.waitForTimeout(2000);
+      
+      // Upload invoice.pdf file using the second "Browse files" button (after Mandate Form)
+      try {
+        console.log(`Uploading file after Mandate Form check: ${resolvedFilePath}...`);
+        
+        // Method 1: Use file chooser (recommended approach) - find the second "Browse files" button
+        try {
+          // Wait for "Browse files" buttons to be available
+          await this.page.waitForTimeout(1000);
+          
+          // Try to find all "Browse files" buttons and use the second one (after mandate form)
+          const browseFilesButtons = this.page.getByText('Browse files');
+          const browseFilesCount = await browseFilesButtons.count();
+          console.log(`Found ${browseFilesCount} "Browse files" button(s)`);
+          
+          let fileUploaded = false;
+          
+          // If there are multiple buttons, try the second one (index 1)
+          if (browseFilesCount > 1) {
+            try {
+              const secondBrowseButton = browseFilesButtons.nth(1);
+              if (await secondBrowseButton.isVisible({ timeout: 5000 })) {
+                await secondBrowseButton.scrollIntoViewIfNeeded();
+                await this.page.waitForTimeout(500);
+                const fileChooserPromise = this.page.waitForEvent('filechooser');
+                await secondBrowseButton.click();
+                console.log('✅ Second "Browse files" button clicked (after Mandate Form)');
+                
+                const fileChooser = await fileChooserPromise;
+                await fileChooser.setFiles(resolvedFilePath);
+                console.log(`✅ File uploaded via file chooser: ${resolvedFilePath}`);
+                fileUploaded = true;
+              }
+            } catch (e) {
+              console.log(`⚠️ Second browse button method failed: ${e.message}`);
+            }
+          }
+          
+          // Fallback: Try the last "Browse files" button
+          if (!fileUploaded && browseFilesCount > 0) {
+            try {
+              const lastBrowseButton = browseFilesButtons.last();
+              if (await lastBrowseButton.isVisible({ timeout: 5000 })) {
+                await lastBrowseButton.scrollIntoViewIfNeeded();
+                await this.page.waitForTimeout(500);
+                const fileChooserPromise = this.page.waitForEvent('filechooser');
+                await lastBrowseButton.click();
+                console.log('✅ Last "Browse files" button clicked (after Mandate Form)');
+                
+                const fileChooser = await fileChooserPromise;
+                await fileChooser.setFiles(resolvedFilePath);
+                console.log(`✅ File uploaded via file chooser: ${resolvedFilePath}`);
+                fileUploaded = true;
+              }
+            } catch (e) {
+              console.log(`⚠️ Last browse button method failed: ${e.message}`);
+            }
+          }
+          
+          // Fallback: Try the first "Browse files" button if only one exists
+          if (!fileUploaded) {
+            const firstBrowseButton = browseFilesButtons.first();
+            if (await firstBrowseButton.isVisible({ timeout: 5000 })) {
+              await firstBrowseButton.scrollIntoViewIfNeeded();
+              await this.page.waitForTimeout(500);
+              const fileChooserPromise = this.page.waitForEvent('filechooser');
+              await firstBrowseButton.click();
+              console.log('✅ "Browse files" button clicked');
+              
+              const fileChooser = await fileChooserPromise;
+              await fileChooser.setFiles(resolvedFilePath);
+              console.log(`✅ File uploaded via file chooser: ${resolvedFilePath}`);
+              fileUploaded = true;
+            } else {
+              throw new Error('Browse files button not visible');
+            }
           }
         } catch (fileChooserError) {
           console.log(`⚠️ File chooser method failed: ${fileChooserError.message}, trying alternatives...`);
           
-          // Method 2: Find file input directly and set files
+          // Method 2: Find file input directly and set files (try second file input)
           try {
-            const fileInput = this.page.locator('input[type="file"]').first();
-            // Wait for file input to be attached to DOM (may be hidden)
-            await fileInput.waitFor({ state: 'attached', timeout: 3000 });
-            await fileInput.setInputFiles(resolvedFilePath);
-            console.log(`✅ File uploaded via direct file input: ${resolvedFilePath}`);
+            const fileInputs = this.page.locator('input[type="file"]');
+            const inputCount = await fileInputs.count();
+            console.log(`Found ${inputCount} file input(s)`);
+            
+            // Try the second file input if available, otherwise use the last one
+            let targetInput = null;
+            if (inputCount > 1) {
+              targetInput = fileInputs.nth(1);
+            } else if (inputCount > 0) {
+              targetInput = fileInputs.last();
+            }
+            
+            if (targetInput) {
+              await targetInput.waitFor({ state: 'attached', timeout: 3000 });
+              await targetInput.setInputFiles(resolvedFilePath);
+              console.log(`✅ File uploaded via direct file input: ${resolvedFilePath}`);
+            } else {
+              throw new Error('No file input found');
+            }
           } catch (directInputError) {
             console.log(`⚠️ Direct file input method failed: ${directInputError.message}, trying body fallback...`);
             
@@ -1374,6 +1616,53 @@ class ProposalDetailsPage extends BaseRenewalPage {
       } catch (e) {
         console.log(`❌ Could not upload file: ${e.message}`);
         console.log(`❌ File upload error stack: ${e.stack}`);
+      }
+      
+      // Wait a bit for file upload to complete and UI to update
+      await this.page.waitForTimeout(2000);
+      
+      // Click "SEND FOR APPROVAL" button
+      try {
+        console.log('Clicking SEND FOR APPROVAL button...');
+        await this.page.waitForTimeout(1000);
+        
+        const sendForApprovalSelectors = [
+          () => this.page.getByRole('button', { name: 'SEND FOR APPROVAL' }),
+          () => this.page.getByRole('button', { name: /SEND FOR APPROVAL/i }),
+          () => this.page.getByRole('button', { name: /^SEND FOR APPROVAL$/i }),
+          () => this.page.locator('button').filter({ hasText: /^SEND FOR APPROVAL$/i }),
+          () => this.page.locator('button').filter({ hasText: /SEND FOR APPROVAL/i }),
+          () => this.page.locator('button:has-text("SEND FOR APPROVAL")'),
+          () => this.page.locator('button:has-text("Send for Approval")'),
+          () => this.page.locator('button:has-text("Send For Approval")'),
+        ];
+        
+        let sendForApprovalClicked = false;
+        for (let i = 0; i < sendForApprovalSelectors.length && !sendForApprovalClicked; i++) {
+          try {
+            const sendButton = sendForApprovalSelectors[i]();
+            if (await sendButton.isVisible({ timeout: 5000 })) {
+              await sendButton.scrollIntoViewIfNeeded();
+              await this.page.waitForTimeout(500);
+              await sendButton.click();
+              console.log(`✅ SEND FOR APPROVAL button clicked (selector ${i + 1})`);
+              sendForApprovalClicked = true;
+              
+              // Wait for action to complete
+              await this.page.waitForTimeout(2000);
+              await this.page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+              break;
+            }
+          } catch (e) {
+            continue;
+          }
+        }
+        
+        if (!sendForApprovalClicked) {
+          console.log('⚠️ SEND FOR APPROVAL button not found');
+        }
+      } catch (e) {
+        console.log(`⚠️ Error clicking SEND FOR APPROVAL button: ${e.message}`);
       }
       
       // Click Verify KYC button
@@ -2011,23 +2300,511 @@ class ProposalDetailsPage extends BaseRenewalPage {
       // Click Upload button
       try {
         console.log('Clicking Upload button...');
+        await this.page.waitForTimeout(2000); // Wait for upload section to be ready
+        
         const uploadSelectors = [
+          // Strategy 1: By role with exact text
           () => this.page.getByRole('button', { name: 'Upload' }),
+          // Strategy 2: By role with case-insensitive regex
           () => this.page.getByRole('button', { name: /Upload/i }),
+          // Strategy 3: By role with exact match regex
+          () => this.page.getByRole('button', { name: /^Upload$/i }),
+          // Strategy 4: Button locator with text filter (exact)
           () => this.page.locator('button').filter({ hasText: /^Upload$/i }),
+          // Strategy 5: Button locator with text filter (contains)
+          () => this.page.locator('button').filter({ hasText: /Upload/i }),
+          // Strategy 6: Button with has-text selector
           () => this.page.locator('button:has-text("Upload")'),
+          // Strategy 7: Find button near upload sections
+          async () => {
+            const uploadSection = this.page.getByText(/Upload Photograph|Upload Address Document/i).first();
+            if (await uploadSection.isVisible({ timeout: 3000 }).catch(() => false)) {
+              const uploadButton = uploadSection.locator('xpath=following::button[contains(text(), "Upload")][1] | ancestor::*[1]//button[contains(text(), "Upload")][1]').first();
+              if (await uploadButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+                return uploadButton;
+              }
+            }
+            return null;
+          },
+          // Strategy 8: Find all buttons and filter by text content
+          async () => {
+            const allButtons = this.page.locator('button');
+            const count = await allButtons.count();
+            for (let i = 0; i < count; i++) {
+              const btn = allButtons.nth(i);
+              const text = await btn.textContent().catch(() => '');
+              if (text && /^Upload$/i.test(text.trim())) {
+                return btn;
+              }
+            }
+            return null;
+          },
         ];
         
         let uploadClicked = false;
         for (let i = 0; i < uploadSelectors.length && !uploadClicked; i++) {
           try {
-            const uploadButton = uploadSelectors[i]();
-            if (await uploadButton.isVisible({ timeout: 5000 })) {
-              await uploadButton.scrollIntoViewIfNeeded();
+            const uploadButtonFn = uploadSelectors[i];
+            const uploadButton = await uploadButtonFn();
+            if (!uploadButton) continue;
+            
+            // Check if button is visible and enabled
+            const isVisible = await uploadButton.isVisible({ timeout: 5000 }).catch(() => false);
+            if (isVisible) {
+              const isEnabled = await uploadButton.isEnabled().catch(() => true);
+              if (isEnabled) {
+                await uploadButton.scrollIntoViewIfNeeded();
+                await this.page.waitForTimeout(500);
+                
+                // Try normal click first
+                try {
+                  await uploadButton.click({ timeout: 5000 });
+                  console.log(`✅ Upload button clicked (selector ${i + 1})`);
+                  uploadClicked = true;
+                  break;
+                } catch (clickError) {
+                  console.log(`  Selector ${i + 1}: Click failed, trying force click: ${clickError.message}`);
+                  try {
+                    await uploadButton.click({ force: true, timeout: 5000 });
+                    console.log(`✅ Upload button clicked with force (selector ${i + 1})`);
+                    uploadClicked = true;
+                    break;
+                  } catch (forceError) {
+                    console.log(`  Selector ${i + 1}: Force click also failed: ${forceError.message}`);
+                    continue;
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            console.log(`  Selector ${i + 1}: Error - ${e.message}`);
+            continue;
+          }
+        }
+        
+        if (!uploadClicked) {
+          console.log('⚠️ Upload button not found or could not be clicked');
+          console.log('🔍 Attempting to find any button with Upload text...');
+          // Last resort: try to find any element with Upload text
+          try {
+            const allButtons = this.page.locator('button');
+            const buttonCount = await allButtons.count();
+            console.log(`Found ${buttonCount} buttons on page`);
+            for (let i = 0; i < buttonCount; i++) {
+              const btn = allButtons.nth(i);
+              const text = await btn.textContent().catch(() => '');
+              if (text && /Upload/i.test(text.trim())) {
+                console.log(`  Button ${i}: "${text}"`);
+                const isVisible = await btn.isVisible({ timeout: 2000 }).catch(() => false);
+                if (isVisible) {
+                  try {
+                    await btn.scrollIntoViewIfNeeded();
+                    await this.page.waitForTimeout(300);
+                    await btn.click({ force: true });
+                    console.log(`✅ Upload button clicked (button ${i})`);
+                    uploadClicked = true;
+                    break;
+                  } catch (e) {
+                    continue;
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            console.log(`❌ Final attempt failed: ${e.message}`);
+          }
+        }
+      } catch (e) {
+        console.log(`❌ Error clicking Upload button: ${e.message}`);
+        console.log(`Stack trace: ${e.stack}`);
+      }
+      
+      // Wait for page to load after clicking Upload (might show PROCEED button)
+      console.log('⏳ Waiting for page to load and PROCEED button to appear...');
+      await this.page.waitForTimeout(5000);
+      await this.page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+      await this.page.waitForTimeout(2000);
+      
+      // Click PROCEED button
+      try {
+        console.log('🔍 Searching for PROCEED button...');
+        const proceedSelectors = [
+          // Strategy 1: By role with exact text
+          () => this.page.getByRole('button', { name: 'PROCEED' }),
+          // Strategy 2: By role with case-insensitive regex
+          () => this.page.getByRole('button', { name: /PROCEED/i }),
+          // Strategy 3: By role with exact match regex
+          () => this.page.getByRole('button', { name: /^PROCEED$/i }),
+          // Strategy 4: Button locator with text filter (exact)
+          () => this.page.locator('button').filter({ hasText: /^PROCEED$/i }),
+          // Strategy 5: Button locator with text filter (contains)
+          () => this.page.locator('button').filter({ hasText: /PROCEED/i }),
+          // Strategy 6: Button with has-text selector
+          () => this.page.locator('button:has-text("PROCEED")'),
+          // Strategy 7: Button with case-insensitive text
+          () => this.page.locator('button:has-text("Proceed")'),
+          // Strategy 8: CSS selector with button text
+          () => this.page.locator('button[type="button"]').filter({ hasText: /PROCEED/i }),
+          // Strategy 9: CSS selector with button type submit
+          () => this.page.locator('button[type="submit"]').filter({ hasText: /PROCEED/i }),
+          // Strategy 10: Find by text and get parent button
+          async () => {
+            const proceedText = this.page.getByText(/^PROCEED$/i);
+            const button = proceedText.locator('xpath=ancestor::button | ancestor::*[@role="button"]').first();
+            if (await button.count() > 0) return button;
+            return null;
+          },
+          // Strategy 11: Find all buttons and filter by text content
+          async () => {
+            const buttons = this.page.locator('button');
+            const count = await buttons.count();
+            for (let i = 0; i < count; i++) {
+              const btn = buttons.nth(i);
+              const text = await btn.textContent().catch(() => '');
+              if (text && /^PROCEED$/i.test(text.trim())) {
+                return btn;
+              }
+            }
+            return null;
+          },
+          // Strategy 12: XPath selector
+          () => this.page.locator('xpath=//button[contains(translate(text(), "abcdefghijklmnopqrstuvwxyz", "ABCDEFGHIJKLMNOPQRSTUVWXYZ"), "PROCEED")]'),
+        ];
+        
+        let proceedClicked = false;
+        for (let i = 0; i < proceedSelectors.length && !proceedClicked; i++) {
+          try {
+            console.log(`  Trying selector ${i + 1}...`);
+            const proceedButtonFn = proceedSelectors[i];
+            const proceedButton = await proceedButtonFn();
+            if (!proceedButton) {
+              console.log(`  Selector ${i + 1}: No element found`);
+              continue;
+            }
+            
+            // Check if button exists and is visible
+            const count = await proceedButton.count().catch(() => 0);
+            if (count === 0) {
+              console.log(`  Selector ${i + 1}: Count is 0`);
+              continue;
+            }
+            
+            const firstButton = proceedButton.first();
+            const isVisible = await firstButton.isVisible({ timeout: 5000 }).catch(() => false);
+            if (!isVisible) {
+              console.log(`  Selector ${i + 1}: Not visible`);
+              continue;
+            }
+            
+            // Check if button is enabled
+            const isEnabled = await firstButton.isEnabled().catch(() => true);
+            if (!isEnabled) {
+              console.log(`  Selector ${i + 1}: Button found but is disabled`);
+              continue;
+            }
+            
+            // Get button text for debugging
+            const buttonText = await firstButton.textContent().catch(() => '');
+            console.log(`  Selector ${i + 1}: Found button with text: "${buttonText}"`);
+            
+            // Scroll into view and wait
+            await firstButton.scrollIntoViewIfNeeded();
+            await this.page.waitForTimeout(500);
+            
+            // Wait for button to be stable
+            await firstButton.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+            await this.page.waitForTimeout(300);
+            
+            // Try clicking with different methods
+            try {
+              await firstButton.click({ timeout: 5000 });
+              console.log(`✅ PROCEED button clicked successfully (selector ${i + 1})`);
+              proceedClicked = true;
+              break;
+            } catch (clickError) {
+              console.log(`  Selector ${i + 1}: Click failed, trying force click: ${clickError.message}`);
+              try {
+                await firstButton.click({ force: true, timeout: 5000 });
+                console.log(`✅ PROCEED button clicked with force (selector ${i + 1})`);
+                proceedClicked = true;
+                break;
+              } catch (forceError) {
+                console.log(`  Selector ${i + 1}: Force click also failed: ${forceError.message}`);
+                continue;
+              }
+            }
+          } catch (e) {
+            console.log(`  Selector ${i + 1}: Error - ${e.message}`);
+            continue;
+          }
+        }
+        
+        if (!proceedClicked) {
+          console.log('⚠️ PROCEED button not found or could not be clicked');
+          console.log('🔍 Attempting to find any button with PROCEED text...');
+          // Last resort: try to find any element with PROCEED text
+          try {
+            const allButtons = this.page.locator('button');
+            const buttonCount = await allButtons.count();
+            console.log(`Found ${buttonCount} buttons on page`);
+            for (let i = 0; i < buttonCount; i++) {
+              const btn = allButtons.nth(i);
+              const text = await btn.textContent().catch(() => '');
+              console.log(`  Button ${i}: "${text}"`);
+              if (text && /PROCEED/i.test(text.trim())) {
+                await btn.scrollIntoViewIfNeeded();
+                await this.page.waitForTimeout(500);
+                await btn.click({ force: true });
+                console.log(`✅ Found and clicked PROCEED button (button index ${i})`);
+                proceedClicked = true;
+                break;
+              }
+            }
+          } catch (e) {
+            console.log(`❌ Final attempt failed: ${e.message}`);
+          }
+        }
+      } catch (e) {
+        console.log(`❌ Error clicking PROCEED button: ${e.message}`);
+        console.log(`Stack trace: ${e.stack}`);
+      }
+      
+      // Wait for 2 minutes after clicking PROCEED
+      console.log('⏳ Waiting 2 minutes after clicking PROCEED...');
+      await this.page.waitForTimeout(120000); // 2 minutes = 120,000 milliseconds
+      console.log('✅ 2 minutes wait completed after PROCEED');
+      
+      // Wait for page to navigate to KYC Status page
+      await this.page.waitForTimeout(3000);
+      await this.page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+      
+      // Handle KYC Status page
+      await this.handleKYCStatusPage();
+      
+    } catch (e) {
+      console.log(`❌ Error handling IC KYC Portal page: ${e.message}`);
+      throw e;
+    }
+  }
+
+  /**
+   * Handle KYC Status page: Set date fields and click search
+   */
+  async handleKYCStatusPage() {
+    try {
+      console.log('🔍 Handling KYC Status page...');
+      
+      // Wait for page to load
+      await this.page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+      await this.page.waitForTimeout(2000);
+      
+      // Click "KYC Status From" field and click "TODAY" button
+      try {
+        console.log('Setting KYC Status From date to TODAY...');
+        const kycStatusFromSelectors = [
+          // Strategy 1: Find by label text
+          () => {
+            const label = this.page.getByText('KYC Status From').first();
+            return label.locator('xpath=following::input[1]');
+          },
+          // Strategy 2: Find input near label
+          () => {
+            const label = this.page.locator('label, div').filter({ hasText: /^KYC Status From/i }).first();
+            return label.locator('xpath=following-sibling::*//input | following::input[1]').first();
+          },
+          // Strategy 3: Find by placeholder
+          () => this.page.locator('input[placeholder*="DD/MM/YYYY"]').first(),
+          // Strategy 4: Find input near "KYC Status From" text
+          async () => {
+            const text = this.page.getByText(/KYC Status From/i).first();
+            const container = text.locator('xpath=ancestor::*[1]');
+            return container.locator('input').first();
+          },
+        ];
+        
+        let fromFieldFound = false;
+        for (let i = 0; i < kycStatusFromSelectors.length && !fromFieldFound; i++) {
+          try {
+            const fromFieldFn = kycStatusFromSelectors[i];
+            const fromField = await fromFieldFn();
+            if (!fromField) continue;
+            
+            if (await fromField.isVisible({ timeout: 5000 })) {
+              await fromField.scrollIntoViewIfNeeded();
+              await this.page.waitForTimeout(300);
+              await fromField.click();
+              await this.page.waitForTimeout(1000);
+              
+              // Look for "TODAY" button in the date picker
+              console.log('  Looking for TODAY button...');
+              const todayButtonSelectors = [
+                () => this.page.getByRole('button', { name: 'TODAY' }),
+                () => this.page.getByRole('button', { name: /TODAY/i }),
+                () => this.page.locator('button').filter({ hasText: /^TODAY$/i }),
+                () => this.page.locator('button:has-text("TODAY")'),
+                () => this.page.locator('button:has-text("Today")'),
+              ];
+              
+              let todayClicked = false;
+              for (let j = 0; j < todayButtonSelectors.length && !todayClicked; j++) {
+                try {
+                  const todayButton = todayButtonSelectors[j]();
+                  if (await todayButton.isVisible({ timeout: 5000 })) {
+                    await todayButton.scrollIntoViewIfNeeded();
+                    await this.page.waitForTimeout(300);
+                    await todayButton.click();
+                    console.log(`✅ TODAY button clicked for KYC Status From (selector ${j + 1})`);
+                    todayClicked = true;
+                    fromFieldFound = true;
+                    await this.page.waitForTimeout(1000);
+                    break;
+                  }
+                } catch (e) {
+                  continue;
+                }
+              }
+              
+              if (!todayClicked) {
+                console.log('⚠️ TODAY button not found for KYC Status From');
+              } else {
+                break;
+              }
+            }
+          } catch (e) {
+            console.log(`⚠️ KYC Status From selector ${i + 1} failed: ${e.message}`);
+            continue;
+          }
+        }
+        
+        if (!fromFieldFound) {
+          console.log('⚠️ KYC Status From field not found');
+        }
+      } catch (e) {
+        console.log(`⚠️ Error setting KYC Status From: ${e.message}`);
+      }
+      
+      // Click "KYC Status To" field and click "TODAY" button
+      try {
+        console.log('Setting KYC Status To date to TODAY...');
+        await this.page.waitForTimeout(1000);
+        
+        const kycStatusToSelectors = [
+          // Strategy 1: Find by label text
+          () => {
+            const label = this.page.getByText('KYC Status To').first();
+            return label.locator('xpath=following::input[1]');
+          },
+          // Strategy 2: Find input near label
+          () => {
+            const label = this.page.locator('label, div').filter({ hasText: /^KYC Status To/i }).first();
+            return label.locator('xpath=following-sibling::*//input | following::input[1]').first();
+          },
+          // Strategy 3: Find by placeholder (second input)
+          () => this.page.locator('input[placeholder*="DD/MM/YYYY"]').nth(1),
+          // Strategy 4: Find input near "KYC Status To" text
+          async () => {
+            const text = this.page.getByText(/KYC Status To/i).first();
+            const container = text.locator('xpath=ancestor::*[1]');
+            return container.locator('input').first();
+          },
+          // Strategy 5: Find all date inputs and use the second one
+          async () => {
+            const inputs = this.page.locator('input[placeholder*="DD/MM/YYYY"]');
+            const count = await inputs.count();
+            if (count >= 2) {
+              return inputs.nth(1);
+            }
+            return null;
+          },
+        ];
+        
+        let toFieldFound = false;
+        for (let i = 0; i < kycStatusToSelectors.length && !toFieldFound; i++) {
+          try {
+            const toFieldFn = kycStatusToSelectors[i];
+            const toField = await toFieldFn();
+            if (!toField) continue;
+            
+            if (await toField.isVisible({ timeout: 5000 })) {
+              await toField.scrollIntoViewIfNeeded();
+              await this.page.waitForTimeout(300);
+              await toField.click();
+              await this.page.waitForTimeout(1000);
+              
+              // Look for "TODAY" button in the date picker
+              console.log('  Looking for TODAY button...');
+              const todayButtonSelectors = [
+                () => this.page.getByRole('button', { name: 'TODAY' }),
+                () => this.page.getByRole('button', { name: /TODAY/i }),
+                () => this.page.locator('button').filter({ hasText: /^TODAY$/i }),
+                () => this.page.locator('button:has-text("TODAY")'),
+                () => this.page.locator('button:has-text("Today")'),
+              ];
+              
+              let todayClicked = false;
+              for (let j = 0; j < todayButtonSelectors.length && !todayClicked; j++) {
+                try {
+                  const todayButton = todayButtonSelectors[j]();
+                  if (await todayButton.isVisible({ timeout: 5000 })) {
+                    await todayButton.scrollIntoViewIfNeeded();
+                    await this.page.waitForTimeout(300);
+                    await todayButton.click();
+                    console.log(`✅ TODAY button clicked for KYC Status To (selector ${j + 1})`);
+                    todayClicked = true;
+                    toFieldFound = true;
+                    await this.page.waitForTimeout(1000);
+                    break;
+                  }
+                } catch (e) {
+                  continue;
+                }
+              }
+              
+              if (!todayClicked) {
+                console.log('⚠️ TODAY button not found for KYC Status To');
+              } else {
+                break;
+              }
+            }
+          } catch (e) {
+            console.log(`⚠️ KYC Status To selector ${i + 1} failed: ${e.message}`);
+            continue;
+          }
+        }
+        
+        if (!toFieldFound) {
+          console.log('⚠️ KYC Status To field not found');
+        }
+      } catch (e) {
+        console.log(`⚠️ Error setting KYC Status To: ${e.message}`);
+      }
+      
+      // Click "SEARCH" button
+      try {
+        console.log('Clicking SEARCH button...');
+        await this.page.waitForTimeout(1000);
+        
+        const searchButtonSelectors = [
+          () => this.page.getByRole('button', { name: 'SEARCH' }),
+          () => this.page.getByRole('button', { name: /SEARCH/i }),
+          () => this.page.getByRole('button', { name: /^SEARCH$/i }),
+          () => this.page.locator('button').filter({ hasText: /^SEARCH$/i }),
+          () => this.page.locator('button:has-text("SEARCH")'),
+          () => this.page.locator('button:has-text("Search")'),
+          // Strategy: Find button with search icon
+          () => this.page.locator('button').filter({ hasText: /SEARCH/i }),
+        ];
+        
+        let searchClicked = false;
+        for (let i = 0; i < searchButtonSelectors.length && !searchClicked; i++) {
+          try {
+            const searchButton = searchButtonSelectors[i]();
+            if (await searchButton.isVisible({ timeout: 5000 })) {
+              await searchButton.scrollIntoViewIfNeeded();
               await this.page.waitForTimeout(500);
-              await uploadButton.click();
-              console.log(`✅ Upload button clicked (selector ${i + 1})`);
-              uploadClicked = true;
+              await searchButton.click();
+              console.log(`✅ SEARCH button clicked (selector ${i + 1})`);
+              searchClicked = true;
               break;
             }
           } catch (e) {
@@ -2035,20 +2812,15 @@ class ProposalDetailsPage extends BaseRenewalPage {
           }
         }
         
-        if (!uploadClicked) {
-          console.log('⚠️ Upload button not found');
+        if (!searchClicked) {
+          console.log('⚠️ SEARCH button not found');
         }
       } catch (e) {
-        console.log(`⚠️ Error clicking Upload button: ${e.message}`);
+        console.log(`⚠️ Error clicking SEARCH button: ${e.message}`);
       }
       
-      // Wait for 2 minutes after uploading
-      console.log('⏳ Waiting 2 minutes after uploading documents...');
-      await this.page.waitForTimeout(120000); // 2 minutes = 120,000 milliseconds
-      console.log('✅ 2 minutes wait completed after document upload');
-      
     } catch (e) {
-      console.log(`❌ Error handling IC KYC Portal page: ${e.message}`);
+      console.log(`❌ Error handling KYC Status page: ${e.message}`);
       throw e;
     }
   }
